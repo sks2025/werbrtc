@@ -11,6 +11,7 @@ const { testConnection, syncDatabase } = require('./models');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const consultationRoutes = require('./routes/consultations');
+const mediaRoutes = require('./routes/media');
 
 const app = express();
 const server = http.createServer(app);
@@ -36,6 +37,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/consultations', consultationRoutes);
+app.use('/api/media', mediaRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -65,7 +67,7 @@ io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Handle joining a room
-  socket.on('join-room', (data) => {
+  socket.on('join-room', async (data) => {
     const { roomId, role, userInfo } = data;
     
     console.log(`User ${socket.id} joining room ${roomId} as ${role}`);
@@ -81,27 +83,19 @@ io.on('connection', (socket) => {
 
     const room = rooms.get(roomId);
     
-    // Check room capacity and role conflicts
+    // Check room capacity (allow up to 4 users for flexibility)
     const currentUsers = Array.from(room.users.values());
-    const sameRoleUser = currentUsers.find(user => user.role === role);
     
-    if (room.users.size >= 2) {
-      console.log(`Room ${roomId} is full (${room.users.size} users)`);
-      socket.emit('room-error', {
-        error: 'Room is full',
-        message: 'This room already has the maximum number of users (2)'
-      });
-      return;
-    }
+  
     
-    if (sameRoleUser) {
-      console.log(`Room ${roomId} already has a ${role}`);
-      socket.emit('room-error', {
-        error: 'Role conflict',
-        message: `This room already has a ${role}. Please try a different room.`
-      });
-      return;
-    }
+    // Check if user is already in the room (prevent duplicate connections)
+    const existingUser = currentUsers.find(user => 
+      user.userInfo && userInfo && 
+      ((user.userInfo.email && user.userInfo.email === userInfo.email) ||
+       (user.userInfo.phone && user.userInfo.phone === userInfo.phone))
+    );
+    
+   
     
     // Store user information
     users.set(socket.id, {
@@ -132,10 +126,29 @@ io.on('connection', (socket) => {
     });
 
     // Send current room state to the joining user
-    socket.emit('room-joined', {
+    const roomJoinedData = {
       roomId,
       users: Array.from(room.users.values()).filter(u => u.socketId !== socket.id)
-    });
+    };
+
+    // If doctor is joining, include room details with patient info
+    if (role === 'doctor') {
+      try {
+        const { Room, Patient } = require('./models');
+        const roomDetails = await Room.findOne({ 
+          where: { roomId: roomId },
+          include: [{ model: Patient, as: 'Patient' }]
+        });
+        
+        if (roomDetails) {
+          roomJoinedData.roomDetails = roomDetails;
+        }
+      } catch (error) {
+        console.error('Error fetching room details for doctor:', error);
+      }
+    }
+
+    socket.emit('room-joined', roomJoinedData);
 
     console.log(`Room ${roomId} now has ${room.users.size} users`);
   });
@@ -208,6 +221,118 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('screen-share-stop', {
       from: socket.id
     });
+  });
+
+  // Handle recording events
+  socket.on('recording-started', (data) => {
+    const { roomId, userId, userName, timestamp } = data;
+    console.log(`Recording started by ${userName} (${userId}) in room ${roomId}`);
+    
+    // Notify other users in the room
+    socket.to(roomId).emit('recording-started', {
+      userId,
+      userName,
+      timestamp,
+      message: `${userName} started recording the session`
+    });
+  });
+
+  socket.on('recording-stopped', (data) => {
+    const { roomId, userId, userName, timestamp } = data;
+    console.log(`Recording stopped by ${userName} (${userId}) in room ${roomId}`);
+    
+    // Notify other users in the room
+    socket.to(roomId).emit('recording-stopped', {
+      userId,
+      userName,
+      timestamp,
+      message: `${userName} stopped recording the session`
+    });
+  });
+
+  // Handle recording start via socket
+  socket.on('start-recording', async (data) => {
+    const { roomId, recordingId, doctorId, patientId, timestamp } = data;
+    
+    try {
+      // Import models
+      const { ScreenRecording, Room } = require('./models');
+      
+      // Find the actual room by roomId to get the UUID
+      const room = await Room.findOne({ where: { roomId: roomId } });
+      if (!room) {
+        socket.emit('recording-start-error', {
+          error: 'Room not found',
+          details: `Room with ID ${roomId} does not exist`
+        });
+        return;
+      }
+      
+      // Get patientId from room if not provided
+      const finalPatientId = patientId || room.patientId;
+      
+      if (!finalPatientId) {
+        socket.emit('recording-start-error', {
+          error: 'Patient not found',
+          details: 'No patient has joined this room yet'
+        });
+        return;
+      }
+      
+      // Create recording entry in database using the room's UUID
+      const recording = await ScreenRecording.create({
+        roomId: room.id, // Use the actual UUID from the room
+        doctorId,
+        patientId: finalPatientId,
+        recordingData: null, // Will be updated when recording is saved
+        fileName: `${recordingId}.webm`,
+        startedAt: new Date(timestamp),
+        status: 'recording'
+      });
+      
+      console.log(`Recording started: ${recordingId} in room ${roomId} (UUID: ${room.id})`);
+      
+      // Notify all users in room about recording start
+      socket.to(roomId).emit('recording-started', {
+        recordingId,
+        userId: socket.id,
+        timestamp
+      });
+      
+      // Send success response back to initiator
+      socket.emit('recording-start-success', {
+        recordingId: recording.id,
+        fileName: recording.fileName,
+        startedAt: recording.startedAt
+      });
+      
+    } catch (error) {
+      console.error('Error starting recording via socket:', error);
+      socket.emit('recording-start-error', {
+        error: 'Failed to start recording',
+        details: error.message
+      });
+    }
+  });
+
+  // Handle live recording chunks
+  socket.on('recording-chunk', (data) => {
+    const { roomId, userId, chunkData, timestamp, chunkIndex } = data;
+    
+    // Log chunk received (for monitoring)
+    console.log(`Received recording chunk ${chunkIndex} from user ${userId} in room ${roomId}`);
+    
+    // Optionally forward to other users for live monitoring
+    // socket.to(roomId).emit('recording-chunk-received', {
+    //   userId,
+    //   chunkIndex,
+    //   timestamp
+    // });
+    
+    // Here you could implement real-time processing:
+    // - Save chunks to temporary storage
+    // - Process chunks for live streaming
+    // - Implement backup mechanisms
   });
 
   // Handle disconnection

@@ -63,9 +63,10 @@ const PatientJoin = () => {
       const response = await roomsAPI.joinRoom(roomId, patientInfo);
       
       if (response.data.success) {
-        // Store patient info for the session
+        // Store patient info for the session including the patient ID from backend
         sessionStorage.setItem('patientInfo', JSON.stringify({
           ...patientInfo,
+          id: response.data.data.patient.id, // Store the patient UUID from backend
           roomId,
           joinedAt: new Date().toISOString()
         }));

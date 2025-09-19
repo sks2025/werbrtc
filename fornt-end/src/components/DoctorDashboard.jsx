@@ -44,9 +44,19 @@ const DoctorDashboard = () => {
       return;
     }
 
+    if (roomName.trim().length < 3) {
+      alert('Room name must be at least 3 characters long');
+      return;
+    }
+
+    if (roomName.trim().length > 100) {
+      alert('Room name must be less than 100 characters');
+      return;
+    }
+
     setIsCreatingRoom(true);
     try {
-      const response = await roomsAPI.createRoom({ roomName });
+      const response = await roomsAPI.createRoom({ roomName: roomName.trim() });
       
       if (response.data.success) {
         setRooms([response.data.data.room, ...rooms]);
@@ -116,13 +126,13 @@ const DoctorDashboard = () => {
                 type="text"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
-                placeholder="Enter room name (e.g., Patient Consultation)"
+                placeholder="Enter room name (minimum 3 characters, e.g., Patient Consultation)"
                 className="room-name-input"
                 disabled={isCreatingRoom}
               />
               <button 
                 onClick={createVideoRoom} 
-                disabled={isCreatingRoom || !roomName.trim()}
+                disabled={isCreatingRoom || !roomName.trim() || roomName.trim().length < 3}
                 className="create-room-btn"
               >
                 {isCreatingRoom ? 'Creating Room...' : 'Create New Room'}

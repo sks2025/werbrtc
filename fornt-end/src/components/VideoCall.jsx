@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import html2canvas from 'html2canvas';
 import SignatureCanvas from 'react-signature-canvas';
-import { consultationsAPI } from '../services/api';
+import { consultationsAPI, mediaAPI } from '../services/api';
 import './VideoCall.css';
 
 const VideoCall = () => {
@@ -32,6 +32,22 @@ const VideoCall = () => {
   const [remoteUserConnected, setRemoteUserConnected] = useState(false);
   const [capturedImages, setCapturedImages] = useState([]);
   const [isProcessingSignaling, setIsProcessingSignaling] = useState(false);
+  
+  // Screen recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [recordedChunks, setRecordedChunks] = useState([]);
+  const [recordingId, setRecordingId] = useState(null);
+  const [recordingStartTime, setRecordingStartTime] = useState(null);
+  
+  // Media data display state
+  const [showMediaData, setShowMediaData] = useState(false);
+  const [roomMediaData, setRoomMediaData] = useState({
+    images: [],
+    signatures: [],
+    recordings: []
+  });
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   
   // Consultation data state
   const [consultationData, setConsultationData] = useState({
@@ -67,6 +83,18 @@ const VideoCall = () => {
       cleanup();
     };
   }, []);
+
+  // Auto-start recording for doctors when call becomes active
+  useEffect(() => {
+    if (role === 'doctor' && isCallActive && remoteUserConnected && !isRecording) {
+      // Start recording automatically after a short delay
+      const timer = setTimeout(() => {
+        startScreenRecording();
+      }, 2000); // 2 second delay to ensure everything is ready
+
+      return () => clearTimeout(timer);
+    }
+  }, [role, isCallActive, remoteUserConnected, isRecording]);
 
   const initializeCall = async () => {
     try {
@@ -120,6 +148,22 @@ const VideoCall = () => {
       socketRef.current.on('room-joined', (data) => {
         console.log('Room joined successfully:', data);
         console.log('Other users in room:', data.users);
+        
+        // If doctor, fetch room details to get patient info
+        if (role === 'doctor' && data.roomDetails) {
+          const roomDetails = data.roomDetails;
+          if (roomDetails.Patient) {
+            // Store patient info in sessionStorage for doctor's use
+            sessionStorage.setItem('patientInfo', JSON.stringify({
+              id: roomDetails.Patient.id,
+              name: roomDetails.Patient.name,
+              age: roomDetails.Patient.age,
+              phone: roomDetails.Patient.phone,
+              roomId: roomId
+            }));
+            console.log('Patient info stored for doctor:', roomDetails.Patient);
+          }
+        }
         
         // Check if room has too many users
         if (data.users && data.users.length > 1) {
@@ -202,11 +246,123 @@ const VideoCall = () => {
       socketRef.current.on('disconnect', () => {
         console.log('Disconnected from signaling server');
         setIsConnected(false);
+        
+        // Auto-save recording if disconnected while recording
+        if (isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          console.log('Auto-saving recording due to disconnect');
+          stopScreenRecording();
+        }
+      });
+
+      // Recording status sync events
+      socketRef.current.on('recording-started', (data) => {
+        console.log('Recording started by:', data.userId);
+        // Optionally show notification that recording started
+      });
+
+      socketRef.current.on('recording-stopped', (data) => {
+        console.log('Recording stopped by:', data.userId);
+        // Optionally show notification that recording stopped
+      });
+
+      // Recording start response events
+      socketRef.current.on('recording-start-success', (data) => {
+        console.log('Recording started successfully:', data);
+        setRecordingId(data.recordingId);
+        setRecordingStartTime(new Date(data.startedAt));
+        
+        // Now start the actual recording
+        if (window.tempRecorder && window.tempChunks) {
+          const recorder = window.tempRecorder;
+          const chunks = window.tempChunks;
+          
+          recorder.start(1000); // Collect data every second for live streaming
+          setMediaRecorder(recorder);
+          setIsRecording(true);
+          setRecordedChunks(chunks);
+          
+          // Performance monitoring
+          const startTime = performance.now();
+          recorder.onstart = () => {
+            const initTime = performance.now() - startTime;
+            console.log(`Recording started in ${initTime.toFixed(2)}ms`);
+          };
+          
+          // Quality monitoring
+          let totalChunks = 0;
+          let totalSize = 0;
+          const originalDataAvailable = recorder.ondataavailable;
+          
+          recorder.ondataavailable = (event) => {
+            totalChunks++;
+            totalSize += event.data.size;
+            
+            // Log recording stats every 10 chunks
+            if (totalChunks % 10 === 0) {
+              const avgChunkSize = (totalSize / totalChunks / 1024).toFixed(2);
+              console.log(`Recording stats: ${totalChunks} chunks, avg size: ${avgChunkSize}KB`);
+            }
+            
+            // Call original handler
+            originalDataAvailable(event);
+          };
+          
+          // Clean up temp variables
+           delete window.tempRecorder;
+           delete window.tempChunks;
+           
+           // Emit recording started event via socket
+           if (socketRef.current) {
+             socketRef.current.emit('recording-started', {
+               roomId,
+               userId: userInfo?.id,
+               userName: userInfo?.name,
+               timestamp: new Date().toISOString()
+             });
+           }
+           
+           console.log('Screen recording started successfully');
+        }
+      });
+
+      socketRef.current.on('recording-start-error', (data) => {
+        console.error('Recording start failed:', data);
+        alert(`Failed to start recording: ${data.error}`);
+        setIsRecording(false);
+        setMediaRecorder(null);
+        setRecordedChunks([]);
+        
+        // Clean up temp variables
+        delete window.tempRecorder;
+        delete window.tempChunks;
       });
 
     } catch (error) {
       console.error('Error initializing call:', error);
       alert('Failed to initialize video call. Please check your camera and microphone permissions.');
+    }
+  };
+
+  // Helper function to get patient ID
+  const getPatientId = () => {
+    try {
+      // First try to get from current userInfo if user is patient
+      if (role === 'patient' && userInfo?.id) {
+        return userInfo.id;
+      }
+      
+      // If doctor, try to get patient info from sessionStorage
+      const patientInfo = JSON.parse(sessionStorage.getItem('patientInfo') || '{}');
+      if (patientInfo.id) {
+        return patientInfo.id;
+      }
+      
+      // Fallback - this should not happen in normal flow
+      console.warn('Patient ID not found, using fallback');
+      return null;
+    } catch (error) {
+      console.error('Error getting patient ID:', error);
+      return null;
     }
   };
 
@@ -595,10 +751,200 @@ const VideoCall = () => {
       };
 
       setCapturedImages(prev => [...prev, newImage]);
-      alert('Image captured successfully!');
+      
+      // Save to database
+      await saveImageToDatabase(imageData, `capture_${Date.now()}.png`);
+      alert('Image captured and saved successfully!');
     } catch (error) {
       console.error('Error capturing image:', error);
       alert('Failed to capture image.');
+    }
+  };
+
+  // Screen Recording Functions
+  const startScreenRecording = async () => {
+    if (role !== 'doctor' || isRecording) return;
+
+    try {
+      // Get screen capture stream with optimized settings
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          mediaSource: 'screen',
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+          frameRate: { ideal: 30, max: 60 },
+          cursor: 'always',
+          displaySurface: 'monitor'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 2
+        }
+      });
+
+      // Create MediaRecorder with optimized settings
+      let mimeType = 'video/webm;codecs=vp9,opus';
+      
+      // Check for codec support and fallback
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=vp8,opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/webm';
+        }
+      }
+      
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: 2500000, // 2.5 Mbps for good quality
+        audioBitsPerSecond: 128000   // 128 kbps for audio
+      });
+
+      const chunks = [];
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+          
+          // Live recording: Send chunk data via socket for real-time processing
+          if (socketRef.current && event.data.size > 0) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              socketRef.current.emit('recording-chunk', {
+                roomId,
+                userId: userInfo?.id,
+                chunkData: reader.result,
+                timestamp: new Date().toISOString(),
+                chunkIndex: chunks.length - 1
+              });
+            };
+            reader.readAsDataURL(event.data);
+          }
+        }
+      };
+      
+      // Monitor stream status for live recording
+      stream.getVideoTracks().forEach(track => {
+        track.onended = () => {
+          console.log('Screen sharing ended by user');
+          if (isRecording) {
+            stopScreenRecording();
+          }
+        };
+      });
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        await saveRecordingToDatabase(blob);
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+        setMediaRecorder(null);
+        setRecordedChunks([]);
+      };
+
+      // Start recording via socket instead of API
+      if (socketRef.current) {
+        // Generate recording ID
+        const recordingId = `recording_${roomId}_${Date.now()}`;
+        
+        // Store recorder and chunks for later use
+        window.tempRecorder = recorder;
+        window.tempChunks = chunks;
+        
+        // Emit recording start event via socket
+        socketRef.current.emit('start-recording', {
+          roomId,
+          recordingId,
+          doctorId: role === 'doctor' ? userInfo?.id : null,
+          patientId: getPatientId(), // Get actual patient ID
+          timestamp: new Date().toISOString()
+        });
+        
+        // Recording will start in socket success event handler
+        console.log('Recording start request sent via socket...');
+      }
+    } catch (error) {
+      console.error('Error starting screen recording:', error);
+      alert('Failed to start screen recording. Please allow screen sharing.');
+    }
+  };
+
+  const stopScreenRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      
+      // Emit recording stopped event via socket
+      if (socketRef.current) {
+        socketRef.current.emit('recording-stopped', {
+          roomId,
+          userId: userInfo?.id,
+          userName: userInfo?.name,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  };
+
+  const saveRecordingToDatabase = async (blob) => {
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64data = reader.result;
+        const duration = recordingStartTime ? Math.floor((new Date() - recordingStartTime) / 1000) : 0;
+        
+        const response = await fetch('http://localhost:3001/api/media/save-recording', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recordingId,
+            recordingData: base64data,
+            duration,
+            fileSize: blob.size
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          console.log('Recording saved to database successfully');
+          alert('Screen recording saved successfully!');
+        }
+      };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error('Error saving recording to database:', error);
+      alert('Failed to save recording to database.');
+    }
+  };
+
+  const saveImageToDatabase = async (imageData, fileName) => {
+    try {
+      const response = await fetch('http://localhost:3001/api/media/capture-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId,
+          doctorId: userInfo?.id || 1,
+          patientId: getPatientId(), // Get actual patient ID
+          imageData,
+          fileName,
+          description: 'Screen capture during consultation'
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('Image saved to database successfully');
+      }
+    } catch (error) {
+      console.error('Error saving image to database:', error);
     }
   };
 
@@ -608,12 +954,40 @@ const VideoCall = () => {
     }
   };
 
-  const saveSignature = () => {
+  const saveSignature = async () => {
+    if (role !== 'doctor') return;
+    
     if (signatureRef.current) {
       const signatureData = signatureRef.current.toDataURL();
-      console.log('Signature saved:', signatureData);
-      alert('Signature saved successfully!');
-      setShowSignature(false);
+      
+      try {
+        const response = await fetch('http://localhost:3001/api/media/save-signature', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            roomId,
+            signedBy: role,
+            doctorId: role === 'doctor' ? (userInfo?.id || 1) : null,
+            patientId: role === 'patient' ? (userInfo?.id || getPatientId()) : getPatientId(),
+            signatureData,
+            purpose: 'consultation_agreement'
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          console.log('Signature saved to database successfully');
+          alert('Signature saved successfully!');
+          setShowSignature(false);
+        } else {
+          throw new Error(result.error || 'Failed to save signature');
+        }
+      } catch (error) {
+        console.error('Error saving signature:', error);
+        alert('Failed to save signature to database.');
+      }
     }
   };
 
@@ -662,6 +1036,11 @@ const VideoCall = () => {
   };
 
   const endCall = () => {
+    // Stop recording if active
+    if (isRecording && role === 'doctor') {
+      stopScreenRecording();
+    }
+    
     cleanup();
     if (role === 'doctor') {
       navigate('/doctor-dashboard');
@@ -680,6 +1059,39 @@ const VideoCall = () => {
     if (socketRef.current) {
       socketRef.current.disconnect();
     }
+  };
+
+  // Fetch room media data
+  const fetchRoomMediaData = async () => {
+    if (!roomId) return;
+    
+    setIsLoadingMedia(true);
+    try {
+      const response = await mediaAPI.getRoomMedia(roomId);
+      if (response.data.success) {
+        setRoomMediaData(response.data.data);
+      } else {
+        console.error('Failed to fetch media data:', response.data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching room media data:', error);
+    } finally {
+      setIsLoadingMedia(false);
+    }
+  };
+
+  // Toggle media data display
+  const toggleMediaDataDisplay = () => {
+    // Role-based access control
+    if (role !== 'doctor') {
+      alert('Access denied. Only doctors can view room media data.');
+      return;
+    }
+    
+    if (!showMediaData) {
+      fetchRoomMediaData();
+    }
+    setShowMediaData(!showMediaData);
   };
 
   if (!isCallActive) {
@@ -702,10 +1114,26 @@ const VideoCall = () => {
           <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
             {isConnected ? 'Connected' : 'Connecting...'}
           </span>
+          {role === 'doctor' && isRecording && (
+            <span className="recording-status">
+              🔴 Recording
+            </span>
+          )}
         </div>
-        <button onClick={endCall} className="end-call-btn">
-          End Call
-        </button>
+        <div className="header-buttons">
+          {role === 'doctor' && (
+            <button 
+              onClick={toggleMediaDataDisplay} 
+              className="media-data-btn"
+              disabled={isLoadingMedia}
+            >
+              {isLoadingMedia ? 'Loading...' : showMediaData ? 'Hide Data' : 'Show Room Data'}
+            </button>
+          )}
+          <button onClick={endCall} className="end-call-btn">
+            End Call
+          </button>
+        </div>
       </div>
 
       {/* React DevTools Notification - Only in development */}
@@ -790,49 +1218,73 @@ const VideoCall = () => {
         <button
           onClick={toggleMute}
           className={`control-btn ${isMuted ? 'muted' : ''}`}
+          title={isMuted ? 'Unmute' : 'Mute'}
         >
-          {isMuted ? '🔇' : '🎤'}
+          <span className="btn-icon">{isMuted ? '🔇' : '🎤'}</span>
+          <span className="btn-text">{isMuted ? 'Unmute' : 'Mute'}</span>
         </button>
 
         <button
           onClick={toggleVideo}
           className={`control-btn ${isVideoOff ? 'video-off' : ''}`}
+          title={isVideoOff ? 'Turn On Video' : 'Turn Off Video'}
         >
-          {isVideoOff ? '📹' : '📷'}
+          <span className="btn-icon">{isVideoOff ? '📹' : '📷'}</span>
+          <span className="btn-text">{isVideoOff ? 'Video On' : 'Video Off'}</span>
         </button>
 
         {role === 'doctor' && (
-          <button onClick={captureImage} className="control-btn capture-btn">
-            📸 Capture
+          <button onClick={captureImage} className="control-btn capture-btn" title="Capture Screenshot">
+            <span className="btn-icon">📸</span>
+            <span className="btn-text">Capture</span>
+          </button>
+        )}
+
+        {role === 'doctor' && (
+          <button 
+            onClick={isRecording ? stopScreenRecording : startScreenRecording} 
+            className={`control-btn recording-btn ${isRecording ? 'recording-active' : ''}`}
+            title={isRecording ? 'Stop Recording' : 'Start Recording'}
+          >
+            <span className="btn-icon">{isRecording ? '⏹️' : '🎥'}</span>
+            <span className="btn-text">{isRecording ? 'Stop Rec' : 'Record'}</span>
+          </button>
+        )}
+
+        {role === 'doctor' && (
+          <button
+            onClick={() => setShowSignature(true)}
+            className="control-btn signature-btn"
+            title="Digital Signature"
+          >
+            <span className="btn-icon">✍️</span>
+            <span className="btn-text">Sign</span>
           </button>
         )}
 
         <button
-          onClick={() => setShowSignature(true)}
-          className="control-btn signature-btn"
-        >
-          ✍️ Sign
-        </button>
-
-        <button
           onClick={() => setShowWhiteboard(!showWhiteboard)}
           className="control-btn whiteboard-btn"
+          title="Open Whiteboard"
         >
-          📝 Whiteboard
+          <span className="btn-icon">📝</span>
+          <span className="btn-text">Whiteboard</span>
         </button>
 
         {role === 'doctor' && (
           <button
             onClick={() => setShowConsultationForm(true)}
             className="control-btn consultation-btn"
+            title="Consultation Form"
           >
-            📋 Consultation
+            <span className="btn-icon">📋</span>
+            <span className="btn-text">Consultation</span>
           </button>
         )}
       </div>
 
-      {/* Signature Modal */}
-      {showSignature && (
+      {/* Signature Modal (Doctor only) */}
+      {role === 'doctor' && showSignature && (
         <div className="modal-overlay">
           <div className="signature-modal">
             <h3>Digital Signature</h3>
@@ -1011,6 +1463,108 @@ const VideoCall = () => {
                   Save Consultation
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Media Data Display Modal */}
+      {showMediaData && (
+        <div className="modal-overlay">
+          <div className="modal-content media-data-modal">
+            <div className="modal-header">
+              <h3>Room Media Data</h3>
+              <button onClick={() => setShowMediaData(false)} className="close-btn">×</button>
+            </div>
+            <div className="modal-body">
+              {isLoadingMedia ? (
+                <div className="loading-container">
+                  <div className="loading-spinner"></div>
+                  <p>Loading media data...</p>
+                </div>
+              ) : (
+                <div className="media-data-content">
+                  {/* Images Section */}
+                  <div className="media-section">
+                    <h4>Captured Images ({roomMediaData.images?.length || 0})</h4>
+                    {roomMediaData.images?.length > 0 ? (
+                      <div className="media-grid">
+                        {roomMediaData.images.map((image, index) => (
+                          <div key={index} className="media-item">
+                            <img 
+                              src={image.imageData} 
+                              alt={`Captured ${index + 1}`}
+                              className="media-thumbnail"
+                            />
+                            <div className="media-info">
+                              <p>Captured by: {image.capturedBy}</p>
+                              <p>Time: {new Date(image.createdAt).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-data">No images captured yet</p>
+                    )}
+                  </div>
+
+                  {/* Signatures Section */}
+                  <div className="media-section">
+                    <h4>Digital Signatures ({roomMediaData.signatures?.length || 0})</h4>
+                    {roomMediaData.signatures?.length > 0 ? (
+                      <div className="media-grid">
+                        {roomMediaData.signatures.map((signature, index) => (
+                          <div key={index} className="media-item">
+                            <img 
+                              src={signature.signatureData} 
+                              alt={`Signature ${index + 1}`}
+                              className="media-thumbnail"
+                            />
+                            <div className="media-info">
+                              <p>Signed by: {signature.signedBy}</p>
+                              <p>Purpose: {signature.purpose}</p>
+                              <p>Time: {new Date(signature.createdAt).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-data">No signatures created yet</p>
+                    )}
+                  </div>
+
+                  {/* Recordings Section */}
+                  <div className="media-section">
+                    <h4>Screen Recordings ({roomMediaData.recordings?.length || 0})</h4>
+                    {roomMediaData.recordings?.length > 0 ? (
+                      <div className="media-list">
+                        {roomMediaData.recordings.map((recording, index) => (
+                          <div key={index} className="media-item recording-item">
+                            <div className="recording-info">
+                              <p><strong>Recording {index + 1}</strong></p>
+                              <p>Duration: {recording.duration || 'Unknown'}</p>
+                              <p>Started by: {recording.startedBy}</p>
+                              <p>Time: {new Date(recording.createdAt).toLocaleString()}</p>
+                            </div>
+                            {recording.filePath && (
+                              <a 
+                                href={`http://localhost:3001${recording.filePath}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="download-btn"
+                              >
+                                Download
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-data">No recordings available yet</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -78,7 +78,10 @@ router.post('/create', verifyDoctorToken, async (req, res) => {
 router.get('/my-rooms', verifyDoctorToken, async (req, res) => {
   try {
     const rooms = await Room.findAll({
-      where: { doctorId: req.doctor.id },
+      where: { 
+        doctorId: req.doctor.id,
+        status: ['active', 'completed'] // Exclude cancelled rooms
+      },
       include: [
         {
           model: Patient,

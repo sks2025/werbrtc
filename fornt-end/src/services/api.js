@@ -59,6 +59,15 @@ export const consultationsAPI = {
   getConsultationDetails: (consultationId) => api.get(`/consultations/${consultationId}`),
 };
 
+// Media API
+export const mediaAPI = {
+  getRoomMedia: (roomId, role, userId) => api.get(`/media/room/${roomId}?role=${role}&userId=${userId}`),
+  captureImage: (imageData) => api.post('/media/capture-image', imageData),
+  saveSignature: (signatureData) => api.post('/media/save-signature', signatureData),
+  startRecording: (recordingData) => api.post('/media/start-recording', recordingData),
+  saveRecording: (recordingData) => api.post('/media/save-recording', recordingData),
+};
+
 // Health check
 export const healthCheck = () => api.get('/health');
 
