@@ -5,8 +5,8 @@ import './DoctorDashboard.css';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-   const [searchParams] = useSearchParams(); // ✅ array destructuring
-    const cid = searchParams.get('cid'); 
+  //  const [searchParams] = useSearchParams(); // ✅ array destructuring
+  //   const cid = searchParams.get('cid'); 
   const [doctorInfo, setDoctorInfo] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [roomName, setRoomName] = useState('');
@@ -26,8 +26,8 @@ const DoctorDashboard = () => {
 
     setDoctorInfo(JSON.parse(storedDoctorInfo));
     fetchRooms();
-    createVideoRoom(cid)
-  }, [navigate,cid]);
+    // createVideoRoom(cid)
+  }, [navigate]);
 
   const fetchRooms = async () => {
     try {
@@ -42,26 +42,26 @@ const DoctorDashboard = () => {
     }
   };
 
-  const createVideoRoom = async (id) => {
-    // if (!roomName.trim()) {
-    //   alert('Please enter a room name');
-    //   return;
-    // }
+  const createVideoRoom = async () => {
+    if (!roomName.trim()) {
+      alert('Please enter a room name');
+      return;
+    }
 
-    // if (roomName.trim().length < 3) {
-    //   alert('Room name must be at least 3 characters long');
-    //   return;
-    // }
+    if (roomName.trim().length < 3) {
+      alert('Room name must be at least 3 characters long');
+      return;
+    }
 
-    // if (roomName.trim().length > 100) {
-    //   alert('Room name must be less than 100 characters');
-    //   return;
-    // }
+    if (roomName.trim().length > 100) {
+      alert('Room name must be less than 100 characters');
+      return;
+    }
 
     setIsCreatingRoom(true);
     try {
-      // const response = await roomsAPI.createRoom({ roomName: roomName.trim() });
-           const response = await roomsAPI.createRoom({ roomName: id.trim() });
+      const response = await roomsAPI.createRoom({ roomName: roomName.trim() });
+          //  const response = await roomsAPI.createRoom({ roomName: id.trim() });
       
       if (response.data.success) {
         setRooms([response.data.data.room, ...rooms]);
