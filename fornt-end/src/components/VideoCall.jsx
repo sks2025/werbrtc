@@ -890,6 +890,9 @@ const VideoCall = () => {
   };
 
   const saveRecordingToDatabase = async (blob) => {
+
+
+    console.log({recordingId})
     try {
       const reader = new FileReader();
       reader.onloadend = async () => {

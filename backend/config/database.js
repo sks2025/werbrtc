@@ -21,7 +21,8 @@ const sequelize = new Sequelize({
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ PostgreSQL Database connected successfully');
+    // console.log('✅ PostgreSQL Database connected successfully');
+     console.log(`💾 PostgreSQL Database connected and synchronized`);
   } catch (error) {
     console.error('❌ Unable to connect to PostgreSQL database:', error.message);
   }

@@ -417,11 +417,11 @@ const startServer = async () => {
     await syncDatabase();
     
     // Start server
-    server.listen(PORT, () => {
+    server.listen(PORT, async() => {
       console.log(`🚀 WebRTC Signaling Server running on port ${PORT}`);
       console.log(`📡 Socket.io server ready for connections`);
       console.log(`🏥 Doctor-Patient Video Call System Active`);
-      console.log(`💾 PostgreSQL Database connected and synchronized`);
+      // console.log(`💾 PostgreSQL Database connected and synchronized`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);

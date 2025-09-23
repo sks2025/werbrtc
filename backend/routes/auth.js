@@ -136,6 +136,137 @@ router.post('/login', async (req, res) => {
   }
 });
 
+
+// router.post('/login-with-token', async (req, res) => {
+//   try {
+//     const { token } = req.body;
+
+//     if (!token) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Token is required'
+//       });
+//     }
+
+//     // Verify the login token
+//     let payload;
+//     try {
+//       payload = jwt.verify(token, process.env.JWT_SECRET);
+//     } catch (err) {
+//       return res.status(401).json({
+//         success: false,
+//         message: 'Invalid or expired token'
+//       });
+//     }
+
+//     // Expect payload to have doctorId or email
+//     const doctor = await Doctor.findOne({
+//       where: { id: payload.doctorId, isActive: true }
+//     });
+
+//     if (!doctor) {
+//       return res.status(401).json({
+//         success: false,
+//         message: 'Doctor not found or inactive'
+//       });
+//     }
+
+//     // Update last login
+//     await doctor.update({ lastLogin: new Date() });
+
+//     // Generate a new session JWT (like normal login)
+//     const sessionToken = jwt.sign(
+//       { doctorId: doctor.id, email: doctor.email },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '24h' }
+//     );
+
+//     res.json({
+//       success: true,
+//       message: 'Login successful',
+//       data: {
+//         doctor: {
+//           id: doctor.id,
+//           firstName: doctor.firstName,
+//           lastName: doctor.lastName,
+//           email: doctor.email,
+//           specialization: doctor.specialization,
+//           fullName: doctor.getFullName()
+//         },
+//         token: sessionToken
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Login-with-token error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Login with token failed'
+//     });
+//   }
+// });
+
+
+
+router.post('/login-with-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required'
+      });
+    }
+
+    // Check token in the Doctor table (assuming you store it there)
+    const doctor = await Doctor.findOne({
+      where: { loginToken: token, isActive: true }
+    });
+
+    if (!doctor) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token or doctor not found'
+      });
+    }
+
+    // Update last login
+    await doctor.update({ lastLogin: new Date() });
+
+    // Generate new session token
+    // const sessionToken = jwt.sign(
+    //   { doctorId: doctor.id, email: doctor.email },
+    //   process.env.JWT_SECRET,
+    //   { expiresIn: '24h' }
+    // );
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        doctor: {
+          id: doctor.id,
+          firstName: doctor.firstName,
+          lastName: doctor.lastName,
+          email: doctor.email,
+          specialization: doctor.specialization,
+          fullName: doctor.getFullName()
+        },
+        token: sessionToken
+      }
+    });
+
+  } catch (error) {
+    console.error('Login-with-token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login with token failed'
+    });
+  }
+});
+
+
 // Get Doctor Profile
 router.get('/profile', async (req, res) => {
   try {

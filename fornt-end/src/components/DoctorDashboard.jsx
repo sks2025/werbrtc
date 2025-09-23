@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { roomsAPI } from '../services/api';
 import './DoctorDashboard.css';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
+   const [searchParams] = useSearchParams(); // ✅ array destructuring
+    const cid = searchParams.get('cid'); 
   const [doctorInfo, setDoctorInfo] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [roomName, setRoomName] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [loading, setLoading] = useState(true);
+  
 
   useEffect(() => {
     // Check if doctor is authenticated
@@ -23,7 +26,8 @@ const DoctorDashboard = () => {
 
     setDoctorInfo(JSON.parse(storedDoctorInfo));
     fetchRooms();
-  }, [navigate]);
+    createVideoRoom(cid)
+  }, [navigate,cid]);
 
   const fetchRooms = async () => {
     try {
@@ -38,25 +42,26 @@ const DoctorDashboard = () => {
     }
   };
 
-  const createVideoRoom = async () => {
-    if (!roomName.trim()) {
-      alert('Please enter a room name');
-      return;
-    }
+  const createVideoRoom = async (id) => {
+    // if (!roomName.trim()) {
+    //   alert('Please enter a room name');
+    //   return;
+    // }
 
-    if (roomName.trim().length < 3) {
-      alert('Room name must be at least 3 characters long');
-      return;
-    }
+    // if (roomName.trim().length < 3) {
+    //   alert('Room name must be at least 3 characters long');
+    //   return;
+    // }
 
-    if (roomName.trim().length > 100) {
-      alert('Room name must be less than 100 characters');
-      return;
-    }
+    // if (roomName.trim().length > 100) {
+    //   alert('Room name must be less than 100 characters');
+    //   return;
+    // }
 
     setIsCreatingRoom(true);
     try {
-      const response = await roomsAPI.createRoom({ roomName: roomName.trim() });
+      // const response = await roomsAPI.createRoom({ roomName: roomName.trim() });
+           const response = await roomsAPI.createRoom({ roomName: id.trim() });
       
       if (response.data.success) {
         setRooms([response.data.data.room, ...rooms]);
@@ -118,7 +123,7 @@ const DoctorDashboard = () => {
 
       <main className="dashboard-main">
         <div className="dashboard-container">
-          <section className="create-room-section">
+          {/* <section className="create-room-section">
             <h2>Create Video Consultation Room</h2>
             <p>Create a new video consultation room and share the link with your patient.</p>
             <div className="room-form">
@@ -138,7 +143,7 @@ const DoctorDashboard = () => {
                 {isCreatingRoom ? 'Creating Room...' : 'Create New Room'}
               </button>
             </div>
-          </section>
+          </section> */}
 
           <section className="rooms-section">
             <h2>Your Consultation Rooms</h2>
