@@ -12,9 +12,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       phone,
-      gender,
-      medicalLicense,
-      specialization
+      gender
     } = req.body;
 
     // Check if doctor already exists
@@ -26,16 +24,10 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check medical license
-    const existingLicense = await Doctor.findOne({ where: { medicalLicense } });
-    if (existingLicense) {
-      return res.status(400).json({
-        success: false,
-        message: 'Medical license already registered'
-      });
-    }
+    // Auto-generate medical license number
+    const medicalLicense = `ML${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
-    // Create new doctor
+    // Create new doctor with default specialization
     const doctor = await Doctor.create({
       firstName,
       lastName,
@@ -44,7 +36,7 @@ router.post('/register', async (req, res) => {
       phone,
       gender,
       medicalLicense,
-      specialization
+      specialization: 'General Medicine' // Default specialization
     });
 
     // Generate JWT token

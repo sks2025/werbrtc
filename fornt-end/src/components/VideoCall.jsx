@@ -796,8 +796,7 @@ const VideoCall = () => {
   };
 
   const captureImage = async () => {
-    if (role !== 'doctor') return;
-
+    // Both doctors and patients can capture images
     try {
       const canvas = await html2canvas(document.querySelector('.video-container'));
       const imageData = canvas.toDataURL('image/png');
@@ -807,14 +806,15 @@ const VideoCall = () => {
         id: Date.now(),
         data: imageData,
         timestamp,
-        patientInfo: userInfo
+        capturedBy: role,
+        userInfo: userInfo
       };
 
       setCapturedImages(prev => [...prev, newImage]);
       
-      // Save to database
-      await saveImageToDatabase(imageData, `capture_${Date.now()}.png`);
-      alert('Image captured and saved successfully!');
+      // Save to database with role information
+      await saveImageToDatabase(imageData, `${role}_capture_${Date.now()}.png`);
+      alert(`Image captured and saved successfully by ${role}!`);
     } catch (error) {
       console.error('Error capturing image:', error);
       alert('Failed to capture image.');
@@ -1086,17 +1086,21 @@ const VideoCall = () => {
         },
         body: JSON.stringify({
           roomId,
-          doctorId: userInfo?.id || 1,
-          patientId: getPatientId(), // Get actual patient ID
+          doctorId: role === 'doctor' ? (userInfo?.id || 1) : null,
+          patientId: role === 'patient' ? (userInfo?.id || getPatientId()) : null,
           imageData,
           fileName,
-          description: 'Screen capture during consultation'
+          capturedBy: role, // Add role information
+          description: `Screen capture during consultation by ${role}`
         }),
       });
 
       const result = await response.json();
       if (result.success) {
-        console.log('Image saved to database successfully');
+        console.log(`Image saved to database successfully by ${role}`);
+        return result.data;
+      } else {
+        throw new Error(result.error || 'Failed to save image');
       }
     } catch (error) {
       console.error('Error saving image to database:', error);
@@ -1110,32 +1114,50 @@ const VideoCall = () => {
   };
 
   const saveSignature = async () => {
-    if (role !== 'doctor') return;
-    
+    // Both doctors and patients can save signatures
     if (signatureRef.current) {
       const signatureData = signatureRef.current.toDataURL();
       
+      // Debug information
+      const doctorId = role === 'doctor' ? (userInfo?.id || 1) : null;
+      const patientId = role === 'patient' ? (userInfo?.id || getPatientId()) : null;
+      
+      console.log('Signature save attempt:', {
+        role,
+        userInfo,
+        doctorId,
+        patientId,
+        roomId
+      });
+      
       try {
+        const requestBody = {
+          roomId,
+          signedBy: role,
+          doctorId: doctorId,
+          patientId: patientId,
+          signatureData,
+          purpose: 'consultation_agreement'
+        };
+        
+        console.log('Signature request body:', requestBody);
+        
         const response = await fetch('http://localhost:3001/api/media/save-signature', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            roomId,
-            signedBy: role,
-            doctorId: role === 'doctor' ? (userInfo?.id || 1) : null,
-            patientId: role === 'patient' ? (userInfo?.id || getPatientId()) : getPatientId(),
-            signatureData,
-            purpose: 'consultation_agreement'
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         const result = await response.json();
         if (result.success) {
-          console.log('Signature saved to database successfully');
-          alert('Signature saved successfully!');
+          console.log(`${role} signature saved to database successfully`);
+          alert(`${role} signature saved successfully!`);
           setShowSignature(false);
+          
+          // Clear the signature canvas
+          signatureRef.current.clear();
         } else {
           throw new Error(result.error || 'Failed to save signature');
         }
@@ -1456,12 +1478,11 @@ const VideoCall = () => {
           <span className="btn-text">{isVideoOff ? 'Video On' : 'Video Off'}</span>
         </button>
 
-        {role === 'doctor' && (
-          <button onClick={captureImage} className="control-btn capture-btn" title="Capture Screenshot">
-            <span className="btn-icon">📸</span>
-            <span className="btn-text">Capture</span>
-          </button>
-        )}
+        {/* Both doctors and patients can capture images */}
+        <button onClick={captureImage} className="control-btn capture-btn" title="Capture Screenshot">
+          <span className="btn-icon">📸</span>
+          <span className="btn-text">Capture</span>
+        </button>
 
         {role === 'doctor' && (
           <button 
@@ -1474,16 +1495,18 @@ const VideoCall = () => {
           </button>
         )}
 
-        {role === 'doctor' && (
-          <button
-            onClick={() => setShowSignature(true)}
-            className="control-btn signature-btn"
-            title="Digital Signature"
-          >
-            <span className="btn-icon">✍️</span>
-            <span className="btn-text">Sign</span>
-          </button>
-        )}
+        {/* Both doctors and patients can create signatures */}
+        <button
+          onClick={() => {
+            console.log(`${role} clicked signature button`);
+            setShowSignature(true);
+          }}
+          className="control-btn signature-btn"
+          title={`Digital Signature - ${role}`}
+        >
+          <span className="btn-icon">✍️</span>
+          <span className="btn-text">{role === 'doctor' ? 'Dr. Sign' : 'Pat. Sign'}</span>
+        </button>
 
         <button
           onClick={() => setShowWhiteboard(!showWhiteboard)}
@@ -1506,11 +1529,11 @@ const VideoCall = () => {
         )}
       </div>
 
-      {/* Signature Modal (Doctor only) */}
-      {role === 'doctor' && showSignature && (
+      {/* Signature Modal (Both doctor and patient) */}
+      {showSignature && (
         <div className="modal-overlay">
           <div className="signature-modal">
-            <h3>Digital Signature</h3>
+            <h3>Digital Signature - {role === 'doctor' ? 'Doctor' : 'Patient'}</h3>
             <div className="signature-container">
               <SignatureCanvas
                 ref={signatureRef}
@@ -1551,15 +1574,16 @@ const VideoCall = () => {
         </div>
       )}
 
-      {/* Captured Images (Doctor only) */}
-      {role === 'doctor' && capturedImages.length > 0 && (
+      {/* Captured Images (Both doctor and patient) */}
+      {capturedImages.length > 0 && (
         <div className="captured-images">
-          <h3>Captured Images</h3>
+          <h3>Captured Images by {role}</h3>
           <div className="images-grid">
             {capturedImages.map((image) => (
               <div key={image.id} className="captured-image">
-                <img src={image.data} alt="Captured" />
+                <img src={image.data} alt={`Captured by ${image.capturedBy || role}`} />
                 <p>{new Date(image.timestamp).toLocaleString()}</p>
+                <small>Captured by: {image.capturedBy || role}</small>
               </div>
             ))}
           </div>

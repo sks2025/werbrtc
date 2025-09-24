@@ -14,6 +14,8 @@ const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const consultationRoutes = require('./routes/consultations');
 const mediaRoutes = require('./routes/media');
+const emailRoutes = require('./routes/email');
+const { router: adminRoutes } = require('./routes/admin');
 
 const app = express();
 const server = http.createServer(app);
@@ -42,6 +44,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/email', emailRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

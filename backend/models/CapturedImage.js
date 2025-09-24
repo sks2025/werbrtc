@@ -47,6 +47,11 @@ const CapturedImage = sequelize.define('CapturedImage', {
   description: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  capturedBy: {
+    type: DataTypes.ENUM('doctor', 'patient'),
+    allowNull: false,
+    defaultValue: 'doctor'
   }
 }, {
   tableName: 'captured_images',

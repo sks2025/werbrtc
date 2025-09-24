@@ -10,6 +10,13 @@ const DoctorDashboard = () => {
   const [roomName, setRoomName] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Email popup state
+  const [showEmailPopup, setShowEmailPopup] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [patientName, setPatientName] = useState('');
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isEmailSending, setIsEmailSending] = useState(false);
 
   useEffect(() => {
     // Check if doctor is authenticated
@@ -100,6 +107,75 @@ const DoctorDashboard = () => {
     navigate('/login');
   };
 
+  // Open email popup
+  const openEmailPopup = (room) => {
+    setSelectedRoom(room);
+    setEmailAddress('');
+    setPatientName('');
+    setShowEmailPopup(true);
+  };
+
+  // Close email popup
+  const closeEmailPopup = () => {
+    setShowEmailPopup(false);
+    setEmailAddress('');
+    setPatientName('');
+    setSelectedRoom(null);
+    setIsEmailSending(false);
+  };
+
+  // Send email with meeting link
+  const sendMeetingLinkEmail = async () => {
+    if (!emailAddress.trim()) {
+      alert('Please enter an email address');
+      return;
+    }
+
+    if (!emailAddress.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    setIsEmailSending(true);
+    try {
+      const myHeaders = new Headers();
+      myHeaders.append("Content-Type", "application/json");
+
+      const raw = JSON.stringify({
+        "to": emailAddress.trim(),
+        "doctorName": `Dr. ${doctorInfo.email.split('@')[0]}`,
+        "patientName": patientName.trim() || "Patient",
+        "meetingLink": selectedRoom.patientLink,
+        "roomId": selectedRoom.roomId,
+        "appointmentDate": new Date().toISOString().split('T')[0],
+        "appointmentTime": new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        "customMessage": `Room: ${selectedRoom.roomName}. Please join the video consultation at the scheduled time.`
+      });
+
+      const requestOptions = {
+        method: "POST",
+        headers: myHeaders,
+        body: raw,
+        redirect: "follow"
+      };
+
+      const response = await fetch("http://localhost:3001/api/email/send-meeting-link", requestOptions);
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Meeting link sent successfully to ${emailAddress}!`);
+        closeEmailPopup();
+      } else {
+        alert(`Failed to send email: ${result.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Failed to send email. Please check your internet connection and try again.');
+    } finally {
+      setIsEmailSending(false);
+    }
+  };
+
   if (!doctorInfo) {
     return <div className="loading">Loading...</div>;
   }
@@ -173,6 +249,13 @@ const DoctorDashboard = () => {
                         >
                           Copy
                         </button>
+                        <button 
+                          onClick={() => openEmailPopup(room)}
+                          className="email-btn"
+                          title="Send meeting link via email"
+                        >
+                          📧 Send Email
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -197,6 +280,75 @@ const DoctorDashboard = () => {
           </section>
         </div>
       </main>
+
+      {/* Email Popup Modal */}
+      {showEmailPopup && (
+        <div className="email-popup-overlay">
+          <div className="email-popup">
+            <div className="email-popup-header">
+              <h3>📧 Send Meeting Link via Email</h3>
+              <button onClick={closeEmailPopup} className="close-popup-btn">✕</button>
+            </div>
+            
+            <div className="email-popup-content">
+              <div className="room-info">
+                <p><strong>Room:</strong> {selectedRoom?.roomName}</p>
+                <p><strong>Room ID:</strong> {selectedRoom?.roomId}</p>
+              </div>
+
+              <div className="email-form">
+                <div className="form-group">
+                  <label htmlFor="patient-email">Patient Email Address *</label>
+                  <input
+                    id="patient-email"
+                    type="email"
+                    value={emailAddress}
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    placeholder="Enter patient's email address"
+                    className="email-input"
+                    disabled={isEmailSending}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="patient-name">Patient Name (Optional)</label>
+                  <input
+                    id="patient-name"
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="Enter patient's name"
+                    className="email-input"
+                    disabled={isEmailSending}
+                  />
+                </div>
+
+                <div className="email-preview">
+                  <p><strong>Meeting Link:</strong></p>
+                  <div className="link-preview">{selectedRoom?.patientLink}</div>
+                </div>
+              </div>
+
+              <div className="email-popup-actions">
+                <button 
+                  onClick={closeEmailPopup} 
+                  className="cancel-email-btn"
+                  disabled={isEmailSending}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={sendMeetingLinkEmail} 
+                  className="send-email-btn"
+                  disabled={isEmailSending || !emailAddress.trim()}
+                >
+                  {isEmailSending ? '📤 Sending...' : '📧 Send Email'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

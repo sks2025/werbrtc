@@ -39,8 +39,17 @@ const verifyDoctorToken = async (req, res, next) => {
 router.post('/create', verifyDoctorToken, async (req, res) => {
   try {
     const { roomName } = req.body;
-    const roomId = uuidv4();
-    const patientLink = `${process.env.FRONTEND_URL || 'http://localhost:5174'}/patient-join/${roomId}`;
+    const roomId = roomName;
+    const patientLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient-join/${roomId}`;
+
+    const roomdata = await Room.findOne({ where: { roomId } });
+    if (roomdata) {
+      return res.status(400).json({
+        success: false,
+        message: 'Room already exists',
+        data: roomdata
+      });
+    }
 
     const room = await Room.create({
       roomId,

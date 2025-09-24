@@ -5,28 +5,42 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
 const { CapturedImage, DigitalSignature, ScreenRecording, RoomMedia, Room, Doctor, Patient } = require('../models');
+const CallSave = require('../models/callsave');
 
-// Save captured image
+// Save captured image (for both doctor and patient)
 router.post('/capture-image', async (req, res) => {
   try {
-    const { roomId, doctorId, patientId, imageData, fileName, description } = req.body;
+    const { roomId, doctorId, patientId, imageData, fileName, description, capturedBy, role } = req.body;
 
-    if (!roomId  || !imageData || !fileName) {
+    if (!roomId || !imageData || !fileName || !capturedBy) {
       return res.status(400).json({ 
-        error: 'Missing required fields: roomId, doctorId, patientId, imageData, fileName' 
+        error: 'Missing required fields: roomId, imageData, fileName, capturedBy' 
       });
     }
 
+    // Validate capturedBy field
+    if (!['doctor', 'patient'].includes(capturedBy)) {
+      return res.status(400).json({ 
+        error: 'capturedBy must be either "doctor" or "patient"' 
+      });
+    }
+
+    // Save image file
     const base64Data = imageData.split(",")[1];
     const imageBuffer = Buffer.from(base64Data, "base64");
     const folderPath = path.join(__dirname, "uploads");
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath);
     }
-    const filePath = path.join(folderPath, `image_${Date.now()}.png`);
+    
+    // Create unique filename with role prefix
+    const timestamp = Date.now();
+    const fileExtension = fileName.split('.').pop() || 'png';
+    const uniqueFileName = `${capturedBy}_image_${timestamp}.${fileExtension}`;
+    const filePath = path.join(folderPath, uniqueFileName);
+    
     fs.writeFileSync(filePath, imageBuffer);
-    const imageUrl = filePath;
-    console.log(imageUrl)
+    console.log(`Image saved: ${filePath} by ${capturedBy}`);
 
     // Find the actual room by roomId to get the UUID
     const room = await Room.findOne({ where: { roomId: roomId } });
@@ -37,19 +51,27 @@ router.post('/capture-image', async (req, res) => {
       });
     }
 
-    const capturedImage = await CapturedImage.create({
-      roomId: room.id, // Use the actual UUID from the roo
-      imageData,
-      fileName,
-      description: description || null
-    });
+    // Set the appropriate ID based on who captured the image
+    const imageData_final = {
+      roomId: room.id,
+      imageData: `/uploads/${uniqueFileName}`, // Store file path instead of base64
+      fileName: uniqueFileName,
+      description: description || null,
+      capturedBy: capturedBy,
+      doctorId: capturedBy === 'doctor' ? doctorId : null,
+      patientId: capturedBy === 'patient' ? patientId : null
+    };
+
+    const capturedImage = await CapturedImage.create(imageData_final);
 
     res.status(201).json({
       success: true,
-      message: 'Image captured and saved successfully',
+      message: `Image captured and saved successfully by ${capturedBy}`,
       data: {
         id: capturedImage.id,
         fileName: capturedImage.fileName,
+        capturedBy: capturedImage.capturedBy,
+        imageUrl: `/uploads/${uniqueFileName}`,
         capturedAt: capturedImage.capturedAt
       }
     });
@@ -62,7 +84,7 @@ router.post('/capture-image', async (req, res) => {
   }
 });
 
-// Save digital signature
+// Save digital signature (for both doctor and patient)
 router.post('/save-signature', async (req, res) => {
   try {
     const { roomId, signedBy, doctorId, patientId, signatureData, purpose } = req.body;
@@ -73,16 +95,30 @@ router.post('/save-signature', async (req, res) => {
       });
     }
 
-    if (signedBy === 'doctor' && !doctorId) {
-      return res.status(400).json({ error: 'doctorId required when signedBy is doctor' });
+    // Validate signedBy field
+    if (!['doctor', 'patient'].includes(signedBy)) {
+      return res.status(400).json({ 
+        error: 'signedBy must be either "doctor" or "patient"' 
+      });
     }
 
-    if (signedBy === 'patient' && !patientId) {
-      return res.status(400).json({ error: 'patientId required when signedBy is patient' });
+    // Save signature as image file
+    const base64Data = signatureData.split(",")[1];
+    const signatureBuffer = Buffer.from(base64Data, "base64");
+    const folderPath = path.join(__dirname, "uploads");
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath);
     }
+    
+    // Create unique filename with role prefix
+    const timestamp = Date.now();
+    const uniqueFileName = `${signedBy}_signature_${timestamp}.png`;
+    const filePath = path.join(folderPath, uniqueFileName);
+    
+    fs.writeFileSync(filePath, signatureBuffer);
+    console.log(`Signature saved: ${filePath} by ${signedBy}`);
 
     // Find the actual room by roomId to get the UUID
-    const { Room } = require('../models');
     const room = await Room.findOne({ where: { roomId: roomId } });
     if (!room) {
       return res.status(404).json({ 
@@ -96,16 +132,18 @@ router.post('/save-signature', async (req, res) => {
       signedBy,
       doctorId: signedBy === 'doctor' ? doctorId : null,
       patientId: signedBy === 'patient' ? patientId : null,
-      signatureData,
+      signatureData: `/uploads/${uniqueFileName}`, // Store file path instead of base64
       purpose: purpose || 'consultation_agreement'
     });
 
     res.status(201).json({
       success: true,
-      message: 'Signature saved successfully',
+      message: `${signedBy} signature saved successfully`,
       data: {
         id: signature.id,
         signedBy: signature.signedBy,
+        signatureUrl: `/uploads/${uniqueFileName}`,
+        purpose: signature.purpose,
         signedAt: signature.signedAt
       }
     });
@@ -194,31 +232,39 @@ router.post('/save-recording', async (req, res) => {
     }
 
     // File name unique रखना
-    const filePath = path.join(folderPath, `recording_${Date.now()}.webm`);
+    const fileName = `recording_${Date.now()}.webm`;
+    const filePath = path.join(folderPath, fileName);
 
     // Save file
     fs.writeFileSync(filePath, videoBuffer);
+    console.log('Recording saved to:', filePath);
 
-   
-
-  
-
-    await recording.update({
-      recordingData: filePath,
+    await CallSave.create({
+      recordingData: `/uploads/${fileName}`, // Store relative path, not full system path
+      fileName: fileName,
       duration: duration || null,
       fileSize: fileSize || null,
+      startedAt: new Date(), // Add start time
       endedAt: new Date(),
-      status: 'completed'
+      status: 'completed',
+      roomId: recordingId
+    });
+
+    // Get the created record to return proper data
+    const savedRecording = await CallSave.findOne({
+      where: { roomId: recordingId },
+      order: [['createdAt', 'DESC']]
     });
 
     res.status(200).json({
       success: true,
       message: 'Recording saved successfully',
       data: {
-        id: recording.id,
-        fileName: recording.fileName,
-        duration: recording.duration,
-        endedAt: recording.endedAt
+        id: savedRecording.id,
+        fileName: savedRecording.fileName,
+        recordingUrl: savedRecording.recordingData,
+        duration: savedRecording.duration,
+        endedAt: savedRecording.endedAt
       }
     });
   } catch (error) {
@@ -370,17 +416,52 @@ router.post('/save-media', async (req, res) => {
       return res.status(400).json({ error: 'signedBy is required for digital signatures' });
     }
 
+    // Determine role-based file handling
+    let finalMediaData = mediaData;
+    let finalFileName = fileName;
+
+    // Save media files with role prefix for images and signatures
+    if (mediaType === 'captured_image' || mediaType === 'digital_signature') {
+      const capturedBy = signedBy || (doctorId ? 'doctor' : 'patient');
+      
+      if (mediaData.includes('data:')) {
+        // Handle base64 data
+        const base64Data = mediaData.split(",")[1];
+        const mediaBuffer = Buffer.from(base64Data, "base64");
+        const folderPath = path.join(__dirname, "uploads");
+        
+        if (!fs.existsSync(folderPath)) {
+          fs.mkdirSync(folderPath);
+        }
+        
+        const timestamp = Date.now();
+        const fileExtension = mediaType === 'captured_image' ? 'png' : 'png';
+        const uniqueFileName = `${capturedBy}_${mediaType}_${timestamp}.${fileExtension}`;
+        const filePath = path.join(folderPath, uniqueFileName);
+        
+        fs.writeFileSync(filePath, mediaBuffer);
+        
+        finalMediaData = `/uploads/${uniqueFileName}`;
+        finalFileName = uniqueFileName;
+        
+        console.log(`${mediaType} saved: ${filePath} by ${capturedBy}`);
+      }
+    }
+
     // Create unified media entry
     const mediaEntry = await RoomMedia.create({
       roomId: room.id, // Use the actual UUID from the room
       mediaType,
-      doctorId,
-      patientId,
-      mediaData,
-      fileName,
+      doctorId: mediaType === 'digital_signature' && signedBy === 'doctor' ? doctorId : 
+               mediaType === 'captured_image' && doctorId ? doctorId : null,
+      patientId: mediaType === 'digital_signature' && signedBy === 'patient' ? patientId : 
+                mediaType === 'captured_image' && patientId ? patientId : null,
+      mediaData: finalMediaData,
+      fileName: finalFileName,
       metadata: {
         ...metadata,
-        originalRoomId: roomId // Keep original roomId for reference
+        originalRoomId: roomId, // Keep original roomId for reference
+        capturedBy: signedBy || (doctorId ? 'doctor' : 'patient')
       },
       // Screen recording fields
       duration,
@@ -553,6 +634,312 @@ router.post('/media/:mediaId/chunk', async (req, res) => {
     console.error('Error saving media chunk:', error);
     res.status(500).json({ 
       error: 'Failed to save chunk',
+      details: error.message 
+    });
+  }
+});
+
+// Get images by role (doctor or patient)
+router.get('/room/:roomId/images/:role', async (req, res) => {
+  try {
+    const { roomId, role } = req.params;
+    
+    if (!['doctor', 'patient'].includes(role)) {
+      return res.status(400).json({ 
+        error: 'Role must be either "doctor" or "patient"' 
+      });
+    }
+
+    // Find the actual room by roomId to get the UUID
+    const room = await Room.findOne({ where: { roomId: roomId } });
+    if (!room) {
+      return res.status(404).json({ 
+        error: 'Room not found',
+        details: `Room with ID ${roomId} does not exist`
+      });
+    }
+
+    const images = await CapturedImage.findAll({
+      where: { 
+        roomId: room.id,
+        capturedBy: role
+      },
+      include: [
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] },
+        { model: Patient, as: 'patient', attributes: ['name', 'email'] }
+      ],
+      order: [['capturedAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: images,
+      count: images.length,
+      message: `${role} images retrieved successfully`
+    });
+  } catch (error) {
+    console.error('Error fetching images by role:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch images',
+      details: error.message 
+    });
+  }
+});
+
+// Get signatures by role (doctor or patient)
+router.get('/room/:roomId/signatures/:role', async (req, res) => {
+  try {
+    const { roomId, role } = req.params;
+    
+    if (!['doctor', 'patient'].includes(role)) {
+      return res.status(400).json({ 
+        error: 'Role must be either "doctor" or "patient"' 
+      });
+    }
+
+    // Find the actual room by roomId to get the UUID
+    const room = await Room.findOne({ where: { roomId: roomId } });
+    if (!room) {
+      return res.status(404).json({ 
+        error: 'Room not found',
+        details: `Room with ID ${roomId} does not exist`
+      });
+    }
+
+    const signatures = await DigitalSignature.findAll({
+      where: { 
+        roomId: room.id,
+        signedBy: role
+      },
+      include: [
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] },
+        { model: Patient, as: 'patient', attributes: ['name', 'email'] }
+      ],
+      order: [['signedAt', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: signatures,
+      count: signatures.length,
+      message: `${role} signatures retrieved successfully`
+    });
+  } catch (error) {
+    console.error('Error fetching signatures by role:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch signatures',
+      details: error.message 
+    });
+  }
+});
+
+// Get all media separated by role
+router.get('/room/:roomId/media-by-role', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { requestingRole } = req.query; // Role of the person making the request
+
+    // Find the actual room by roomId to get the UUID
+    const room = await Room.findOne({ where: { roomId: roomId } });
+    if (!room) {
+      return res.status(404).json({ 
+        error: 'Room not found',
+        details: `Room with ID ${roomId} does not exist`
+      });
+    }
+
+    // Get images by role
+    const doctorImages = await CapturedImage.findAll({
+      where: { roomId: room.id, capturedBy: 'doctor' },
+      order: [['capturedAt', 'DESC']]
+    });
+
+    const patientImages = await CapturedImage.findAll({
+      where: { roomId: room.id, capturedBy: 'patient' },
+      order: [['capturedAt', 'DESC']]
+    });
+
+    // Get signatures by role
+    const doctorSignatures = await DigitalSignature.findAll({
+      where: { roomId: room.id, signedBy: 'doctor' },
+      order: [['signedAt', 'DESC']]
+    });
+
+    const patientSignatures = await DigitalSignature.findAll({
+      where: { roomId: room.id, signedBy: 'patient' },
+      order: [['signedAt', 'DESC']]
+    });
+
+    // Role-based access control
+    let responseData;
+    if (requestingRole === 'doctor') {
+      // Doctors can see everything
+      responseData = {
+        doctor: {
+          images: doctorImages,
+          signatures: doctorSignatures
+        },
+        patient: {
+          images: patientImages,
+          signatures: patientSignatures
+        }
+      };
+    } else {
+      // Patients can only see their own media
+      responseData = {
+        patient: {
+          images: patientImages,
+          signatures: patientSignatures
+        }
+      };
+    }
+
+    res.status(200).json({
+      success: true,
+      data: responseData,
+      message: `Media retrieved successfully for ${requestingRole || 'user'}`
+    });
+  } catch (error) {
+    console.error('Error fetching media by role:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch media',
+      details: error.message 
+    });
+  }
+});
+
+
+
+router.get('/all-media/:roomId', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+
+    // Find the actual room by roomId to get the UUID
+    const room = await Room.findOne({ where: { roomId: roomId } });
+    if (!room) {
+      return res.status(404).json({ 
+        error: 'Room not found',
+        details: `Room with ID ${roomId} does not exist`
+      });
+    }
+
+    // Get all recordings from CallSave table
+    const recordings = await CallSave.findAll({
+      where: { roomId: roomId },
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Get doctor signatures
+    const doctorSignatures = await DigitalSignature.findAll({
+      where: { 
+        roomId: room.id,
+        signedBy: 'doctor'
+      },
+      include: [
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] }
+      ],
+      order: [['signedAt', 'DESC']]
+    });
+
+    // Get patient signatures
+    const patientSignatures = await DigitalSignature.findAll({
+      where: { 
+        roomId: room.id,
+        signedBy: 'patient'
+      },
+      include: [
+        { model: Patient, as: 'patient', attributes: ['name', 'email'] }
+      ],
+      order: [['signedAt', 'DESC']]
+    });
+
+    // Get doctor images
+    const doctorImages = await CapturedImage.findAll({
+      where: { 
+        roomId: room.id,
+        capturedBy: 'doctor'
+      },
+      include: [
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] }
+      ],
+      order: [['capturedAt', 'DESC']]
+    });
+
+    // Get patient images
+    const patientImages = await CapturedImage.findAll({
+      where: { 
+        roomId: room.id,
+        capturedBy: 'patient'
+      },
+      include: [
+        { model: Patient, as: 'patient', attributes: ['name', 'email'] }
+      ],
+      order: [['capturedAt', 'DESC']]
+    });
+
+    // Prepare response data
+    const allMediaData = {
+      roomId: roomId,
+      recordings: recordings.map(recording => ({
+        id: recording.id,
+        fileName: recording.fileName,
+        recordingUrl: recording.recordingData,
+        duration: recording.duration,
+        fileSize: recording.fileSize,
+        startedAt: recording.startedAt,
+        endedAt: recording.endedAt,
+        status: recording.status,
+        createdAt: recording.createdAt
+      })),
+      doctorSignatures: doctorSignatures.map(signature => ({
+        id: signature.id,
+        signatureUrl: signature.signatureData,
+        purpose: signature.purpose,
+        signedAt: signature.signedAt,
+        doctor: signature.doctor
+      })),
+      patientSignatures: patientSignatures.map(signature => ({
+        id: signature.id,
+        signatureUrl: signature.signatureData,
+        purpose: signature.purpose,
+        signedAt: signature.signedAt,
+        patient: signature.patient
+      })),
+      doctorImages: doctorImages.map(image => ({
+        id: image.id,
+        imageUrl: image.imageData,
+        fileName: image.fileName,
+        description: image.description,
+        capturedAt: image.capturedAt,
+        doctor: image.doctor
+      })),
+      patientImages: patientImages.map(image => ({
+        id: image.id,
+        imageUrl: image.imageData,
+        fileName: image.fileName,
+        description: image.description,
+        capturedAt: image.capturedAt,
+        patient: image.patient
+      })),
+      summary: {
+        totalRecordings: recordings.length,
+        totalDoctorSignatures: doctorSignatures.length,
+        totalPatientSignatures: patientSignatures.length,
+        totalDoctorImages: doctorImages.length,
+        totalPatientImages: patientImages.length,
+        totalMediaItems: recordings.length + doctorSignatures.length + patientSignatures.length + doctorImages.length + patientImages.length
+      }
+    };
+
+    res.status(200).json({ 
+      success: true, 
+      data: allMediaData,
+      message: `All media data retrieved for room ${roomId}`
+    });
+  } catch (error) {
+    console.error('Error fetching all media:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch all media data', 
       details: error.message 
     });
   }

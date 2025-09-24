@@ -7,6 +7,7 @@ const CapturedImage = require('./CapturedImage');
 const DigitalSignature = require('./DigitalSignature');
 const ScreenRecording = require('./ScreenRecording');
 const RoomMedia = require('./RoomMedia');
+const Admin = require('./Admin');
 
 // Define associations
 Doctor.hasMany(Room, { foreignKey: 'doctorId', as: 'rooms' });
@@ -69,6 +70,9 @@ const syncDatabase = async () => {
   try {
     await sequelize.sync({ alter: true });
     console.log('✅ Database synchronized successfully');
+    
+    // Create default admin after database sync
+    await Admin.createDefaultAdmin();
   } catch (error) {
     console.error('❌ Database synchronization failed:', error.message);
   }
@@ -85,5 +89,6 @@ module.exports = {
   DigitalSignature,
   ScreenRecording,
   RoomMedia,
+  Admin,
   syncDatabase
 };

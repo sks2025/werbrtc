@@ -8,24 +8,37 @@ const CallSave = sequelize.define('CallSave', {
     autoIncrement: true
   },
   roomId: {
-    type: DataTypes.UUID,
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  recordingData: {
+    type: DataTypes.STRING, // stores file path (e.g., /uploads/recording_xxx.webm)
+    allowNull: true
+  },
+  fileName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  duration: {
+    type: DataTypes.INTEGER, // duration in seconds
+    allowNull: true
+  },
+  fileSize: {
+    type: DataTypes.INTEGER, // file size in bytes
+    allowNull: true
+  },
+  startedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  endedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  status: {
+    type: DataTypes.ENUM('recording', 'completed', 'failed'),
     allowNull: false,
-    references: {
-      model: 'rooms',
-      key: 'id'
-    }
-  },
-  videoUrl: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  imageUrl: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  signatureUrl: {
-    type: DataTypes.STRING,
-    allowNull: true
+    defaultValue: 'recording'
   }
 }, {
   tableName: 'call_saves',

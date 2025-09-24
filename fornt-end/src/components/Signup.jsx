@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import { useAdmin } from '../contexts/AdminContext';
 import './Signup.css';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { adminData, adminLogout } = useAdmin();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -12,9 +14,7 @@ const Signup = () => {
     password: '',
     confirmPassword: '',
     phone: '',
-    gender: '',
-    medicalLicense: '',
-    specialization: ''
+    gender: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -77,13 +77,7 @@ const Signup = () => {
       newErrors.gender = 'Please select your gender';
     }
 
-    if (!formData.medicalLicense.trim()) {
-      newErrors.medicalLicense = 'Medical license number is required';
-    }
 
-    if (!formData.specialization.trim()) {
-      newErrors.specialization = 'Medical specialization is required';
-    }
     
     return newErrors;
   };
@@ -118,11 +112,27 @@ const Signup = () => {
     }
   };
 
+  const handleAdminLogout = () => {
+    adminLogout();
+    navigate('/admin-login');
+  };
+
   return (
     <div className="signup-container">
       <div className="signup-card">
+        {/* Admin Header */}
+        <div className="admin-header">
+          <div className="admin-info">
+            <span className="admin-badge">🔐 Admin Access</span>
+            <span className="admin-name">Welcome, {adminData?.name || 'Admin'}</span>
+            <button onClick={handleAdminLogout} className="admin-logout-btn">
+              Logout
+            </button>
+          </div>
+        </div>
+        
         <h2 className="signup-title">Create Doctor Account</h2>
-        <p className="signup-subtitle">Join our medical platform today</p>
+        <p className="signup-subtitle">Register a new doctor to the platform</p>
         
         <form onSubmit={handleSubmit} className="signup-form">
           <div className="form-group">
@@ -246,42 +256,7 @@ const Signup = () => {
             {errors.gender && <span className="error-message">{errors.gender}</span>}
           </div>
           
-          <div className="form-group">
-            <label htmlFor="medicalLicense" className="form-label">Medical License Number</label>
-            <input
-              type="text"
-              id="medicalLicense"
-              name="medicalLicense"
-              value={formData.medicalLicense}
-              onChange={handleChange}
-              className={`form-input ${errors.medicalLicense ? 'error' : ''}`}
-              placeholder="Enter your medical license number"
-            />
-            {errors.medicalLicense && <span className="error-message">{errors.medicalLicense}</span>}
-          </div>
           
-          <div className="form-group">
-            <label htmlFor="specialization" className="form-label">Medical Specialization</label>
-            <select
-              id="specialization"
-              name="specialization"
-              value={formData.specialization}
-              onChange={handleChange}
-              className={`form-input ${errors.specialization ? 'error' : ''}`}
-            >
-              <option value="">Select your specialization</option>
-              <option value="General Medicine">General Medicine</option>
-              <option value="Cardiology">Cardiology</option>
-              <option value="Dermatology">Dermatology</option>
-              <option value="Neurology">Neurology</option>
-              <option value="Orthopedics">Orthopedics</option>
-              <option value="Pediatrics">Pediatrics</option>
-              <option value="Psychiatry">Psychiatry</option>
-              <option value="Surgery">Surgery</option>
-              <option value="Other">Other</option>
-            </select>
-            {errors.specialization && <span className="error-message">{errors.specialization}</span>}
-          </div>
 
           {errors.general && (
             <div className="error-message" style={{ textAlign: 'center', marginBottom: '1rem' }}>

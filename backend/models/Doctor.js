@@ -52,18 +52,13 @@ const Doctor = sequelize.define('Doctor', {
   },
   medicalLicense: {
     type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-    validate: {
-      notEmpty: true
-    }
+    allowNull: true,
+    unique: true
   },
   specialization: {
     type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      notEmpty: true
-    }
+    allowNull: true,
+    defaultValue: 'General Medicine'
   },
   isActive: {
     type: DataTypes.BOOLEAN,

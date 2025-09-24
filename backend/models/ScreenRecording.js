@@ -8,51 +8,31 @@ const ScreenRecording = sequelize.define('ScreenRecording', {
     autoIncrement: true
   },
   roomId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'rooms',
-      key: 'id'
-    }
-  },
-  doctorId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'doctors',
-      key: 'id'
-    }
-  },
-  patientId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'patients',
-      key: 'id'
-    }
-  },
-  recordingData: {
-    type: DataTypes.TEXT('long'), // For base64 video data or file path
-    allowNull: true // Allow null initially, will be updated when recording is saved
-  },
-  fileName: {
     type: DataTypes.STRING,
     allowNull: false
   },
+  recordingData: {
+    type: DataTypes.STRING, // stores file path (e.g., /uploads/recording_xxx.webm)
+    allowNull: true
+  },
+  fileName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   duration: {
-    type: DataTypes.INTEGER, // Duration in seconds
+    type: DataTypes.INTEGER, // duration in seconds
+    allowNull: true
+  },
+  fileSize: {
+    type: DataTypes.INTEGER, // file size in bytes
     allowNull: true
   },
   startedAt: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: true
   },
   endedAt: {
     type: DataTypes.DATE,
-    allowNull: true
-  },
-  fileSize: {
-    type: DataTypes.INTEGER, // File size in bytes
     allowNull: true
   },
   status: {
