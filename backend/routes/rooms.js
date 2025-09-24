@@ -40,7 +40,9 @@ router.post('/create', verifyDoctorToken, async (req, res) => {
   try {
     const { roomName } = req.body;
     const roomId = roomName;
-    const patientLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/patient-join/${roomId}`;
+
+    const patientLink = `${process.env.FRONTEND_URL || 'https://api.stechooze.com'}/patient-join/${roomId}`;
+    console.log(patientLink)
 
     const roomdata = await Room.findOne({ where: { roomId } });
     if (roomdata) {
