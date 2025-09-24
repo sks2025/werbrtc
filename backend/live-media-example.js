@@ -12,7 +12,7 @@ const exampleSocketUsage = {
   
   // Initialize socket connection
   initSocket: function(roomId, userInfo) {
-    const socket = io('http://localhost:3001'); // Your backend URL
+    const socket = io('http://localhost:5000'); // Your backend URL
     
     // Join room
     socket.emit('join-room', {

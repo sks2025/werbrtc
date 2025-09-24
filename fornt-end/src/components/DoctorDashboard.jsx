@@ -159,7 +159,7 @@ const DoctorDashboard = () => {
         redirect: "follow"
       };
 
-      const response = await fetch("http://localhost:3001/api/email/send-meeting-link", requestOptions);
+      const response = await fetch("http://localhost:5000/api/email/send-meeting-link", requestOptions);
       const result = await response.json();
 
       if (result.success) {

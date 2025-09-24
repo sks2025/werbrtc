@@ -29,7 +29,7 @@ export const AdminProvider = ({ children }) => {
       }
 
       // Verify token with backend
-      const response = await fetch('http://localhost:3001/api/admin/profile', {
+      const response = await fetch('http://localhost:5000/api/admin/profile', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -57,7 +57,7 @@ export const AdminProvider = ({ children }) => {
 
   const adminLogin = async (email, password) => {
     try {
-      const response = await fetch('http://localhost:3001/api/admin/login', {
+      const response = await fetch('http://localhost:5000/api/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
