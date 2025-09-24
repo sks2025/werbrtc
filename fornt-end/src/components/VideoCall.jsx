@@ -1096,7 +1096,7 @@ const VideoCall = () => {
 
         navigator.clipboard.writeText(base64data);
         
-        const response = await fetch('http://localhost:5000/api/media/save-recording', {
+        const response = await fetch('https://api.stechooze.com/api/media/save-recording', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1124,7 +1124,7 @@ const VideoCall = () => {
 
   const saveImageToDatabase = async (imageData, fileName) => {
     try {
-      const response = await fetch('http://localhost:5000/api/media/capture-image', {
+      const response = await fetch('https://api.stechooze.com/api/media/capture-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1187,7 +1187,7 @@ const VideoCall = () => {
         
         console.log('Signature request body:', requestBody);
         
-        const response = await fetch('http://localhost:5000/api/media/save-signature', {
+        const response = await fetch('https://api.stechooze.com/api/media/save-signature', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1840,7 +1840,7 @@ const VideoCall = () => {
                             </div>
                             {recording.filePath && (
                               <a 
-                                href={`http://localhost:5000${recording.filePath}`}
+                                href={`https://api.stechooze.com${recording.filePath}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="download-btn"
