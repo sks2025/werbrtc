@@ -1,0 +1,104 @@
+{
+  "success": true,
+  "data": {
+    "roomId": "12345",
+    "recordings": [
+      {
+        "id": 3,
+        "fileName": "recording_1758712435408.webm",
+        "recordingUrl": "/uploads/recording_1758712435408.webm",
+        "duration": null,
+        "fileSize": 5351020,
+        "startedAt": "2025-09-24T11:13:55.412Z",
+        "endedAt": "2025-09-24T11:13:55.412Z",
+        "status": "completed",
+        "createdAt": "2025-09-24T11:13:55.413Z"
+      }
+    ],
+    "doctorSignatures": [
+      {
+        "id": 11,
+        "signatureUrl": "/uploads/doctor_signature_1758712342969.png",
+        "purpose": "consultation_agreement",
+        "signedAt": "2025-09-24T11:12:22.998Z",
+        "doctor": {
+          "firstName": "santosh",
+          "lastName": "sharma",
+          "email": "santoshkumarsharmabagdarr@gmail.com"
+        }
+      }
+    ],
+    "patientSignatures": [
+      {
+        "id": 12,
+        "signatureUrl": "/uploads/patient_signature_1758712354202.png",
+        "purpose": "consultation_agreement",
+        "signedAt": "2025-09-24T11:12:34.207Z",
+        "patient": {
+          "name": "Santosh Kumar Sharma",
+          "email": null
+        }
+      }
+    ],
+    "doctorImages": [
+      {
+        "id": 9,
+        "imageUrl": "/uploads/doctor_image_1758712346754.png",
+        "fileName": "doctor_image_1758712346754.png",
+        "description": "Screen capture during consultation by doctor",
+        "capturedAt": "2025-09-24T11:12:26.760Z",
+        "doctor": {
+          "firstName": "santosh",
+          "lastName": "sharma",
+          "email": "santoshkumarsharmabagdarr@gmail.com"
+        }
+      }
+    ],
+    "patientImages": [
+      {
+        "id": 10,
+        "imageUrl": "/uploads/patient_image_1758712356746.png",
+        "fileName": "patient_image_1758712356746.png",
+        "description": "Screen capture during consultation by patient",
+        "capturedAt": "2025-09-24T11:12:36.752Z",
+        "patient": {
+          "name": "Santosh Kumar Sharma",
+          "email": null
+        }
+      }
+    ],
+    "locationData": {
+      "patient": {
+        "latitude": 28.6139,
+        "longitude": 77.209,
+        "address": null,
+        "timestamp": "2025-09-24T06:06:51.223Z",
+        "accuracy": 20.5
+      },
+      "doctor": {
+        "latitude": 27.17821118,
+        "longitude": 75.71916808,
+        "address": "Lat: 27.178211, Lng: 75.719168",
+        "timestamp": "2025-09-24T06:08:18.359Z",
+        "accuracy": 36.803395054089556
+      },
+      "distance": {
+        "kilometers": 216.61,
+        "miles": 134.6
+      },
+      "status": "active",
+      "capturedAt": "2025-09-24T06:06:51.103Z",
+      "lastUpdated": "2025-09-24T06:08:18.366Z"
+    },
+    "summary": {
+      "totalRecordings": 1,
+      "totalDoctorSignatures": 1,
+      "totalPatientSignatures": 1,
+      "totalDoctorImages": 1,
+      "totalPatientImages": 1,
+      "totalMediaItems": 5,
+      "hasLocationData": true
+    }
+  },
+  "message": "All media data retrieved for room 12345"
+}

@@ -122,6 +122,46 @@
   color: #999;
 }
 
+/* Location Status Styles */
+.location-status {
+  margin: 1rem 0;
+}
+
+.location-success,
+.location-error,
+.location-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  border: 1px solid;
+}
+
+.location-success {
+  background: #e8f5e8;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+.location-error {
+  background: #ffebee;
+  color: #c62828;
+  border-color: #ffcdd2;
+}
+
+.location-loading {
+  background: #fff3e0;
+  color: #ef6c00;
+  border-color: #ffcc02;
+}
+
+.location-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
 .privacy-notice {
   background: #f8f9fa;
   border: 1px solid #e9ecef;

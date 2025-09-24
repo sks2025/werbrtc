@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { roomsAPI } from '../services/api';
+import locationService from '../services/locationService';
 import './PatientJoin.css';
 
 const PatientJoin = () => {
@@ -13,10 +14,38 @@ const PatientJoin = () => {
   });
   const [isJoining, setIsJoining] = useState(false);
   const [roomExists, setRoomExists] = useState(null);
+  
+  // Location state
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationError, setLocationError] = useState(null);
 
   useEffect(() => {
     fetchRoomDetails();
+    initializeLocationTracking();
   }, [roomId]);
+
+  // Initialize location tracking
+  const initializeLocationTracking = async () => {
+    try {
+      if (!locationService.isGeolocationSupported()) {
+        setLocationError('Geolocation is not supported');
+        return;
+      }
+
+      const permissionGranted = await locationService.requestLocationPermission();
+      setLocationPermissionGranted(permissionGranted);
+
+      if (permissionGranted) {
+        const location = await locationService.getCurrentPosition();
+        setCurrentLocation(location);
+        console.log('📍 Patient location obtained:', location);
+      }
+    } catch (error) {
+      console.error('❌ Location error:', error);
+      setLocationError(error.message);
+    }
+  };
 
   const fetchRoomDetails = async () => {
     try {
@@ -70,6 +99,17 @@ const PatientJoin = () => {
           roomId,
           joinedAt: new Date().toISOString()
         }));
+
+        // Save location if available
+        if (currentLocation) {
+          try {
+            await locationService.saveLocationToRoom(roomId, 'patient', currentLocation);
+            console.log('✅ Patient location saved before joining call');
+          } catch (locationError) {
+            console.error('❌ Failed to save patient location:', locationError);
+            // Don't block joining if location save fails
+          }
+        }
 
         // Navigate to video call
         navigate(`/video-call/${roomId}?role=patient`);
@@ -157,9 +197,29 @@ const PatientJoin = () => {
             />
           </div>
 
+          {/* Location Status */}
+          <div className="location-status">
+            {locationPermissionGranted && currentLocation ? (
+              <div className="location-success">
+                <span className="location-icon">📍</span>
+                <span>Location obtained for consultation records</span>
+              </div>
+            ) : locationError ? (
+              <div className="location-error">
+                <span className="location-icon">⚠️</span>
+                <span>Location unavailable: {locationError}</span>
+              </div>
+            ) : (
+              <div className="location-loading">
+                <span className="location-icon">🔍</span>
+                <span>Getting location for consultation...</span>
+              </div>
+            )}
+          </div>
+
           <div className="privacy-notice">
             <p>
-              <strong>Privacy Notice:</strong> Your information will be used only for this consultation 
+              <strong>Privacy Notice:</strong> Your information and location will be used only for this consultation 
               and will be handled according to medical privacy standards.
             </p>
           </div>

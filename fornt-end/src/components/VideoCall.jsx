@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 import html2canvas from 'html2canvas';
 import SignatureCanvas from 'react-signature-canvas';
 import { consultationsAPI, mediaAPI } from '../services/api';
+import locationService from '../services/locationService';
 import './VideoCall.css';
 
 const VideoCall = () => {
@@ -66,6 +67,12 @@ const VideoCall = () => {
     followUpInstructions: ''
   });
 
+  // Location tracking state
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [isLocationSaved, setIsLocationSaved] = useState(false);
+
   // WebRTC configuration
   const iceServers = {
     iceServers: [
@@ -80,10 +87,48 @@ const VideoCall = () => {
 
   useEffect(() => {
     initializeCall();
+    initializeLocationTracking();
     return () => {
       cleanup();
     };
   }, []);
+
+  // Initialize location tracking
+  const initializeLocationTracking = async () => {
+    try {
+      // Check if geolocation is supported
+      if (!locationService.isGeolocationSupported()) {
+        setLocationError('Geolocation is not supported by this browser');
+        return;
+      }
+
+      // Request location permission
+      const permissionGranted = await locationService.requestLocationPermission();
+      setLocationPermissionGranted(permissionGranted);
+
+      if (permissionGranted) {
+        // Get current location
+        const location = await locationService.getCurrentPosition();
+        setCurrentLocation(location);
+        console.log('📍 Current location obtained:', location);
+
+        // Save location to backend
+        try {
+          await locationService.saveLocationToRoom(roomId, role, location);
+          setIsLocationSaved(true);
+          console.log('✅ Location saved to room');
+        } catch (saveError) {
+          console.error('❌ Failed to save location:', saveError);
+          setLocationError('Failed to save location to server');
+        }
+      } else {
+        setLocationError('Location permission denied');
+      }
+    } catch (error) {
+      console.error('❌ Location initialization error:', error);
+      setLocationError(error.message);
+    }
+  };
 
   // Auto-start recording for doctors when call becomes active
   useEffect(() => {

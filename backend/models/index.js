@@ -8,6 +8,7 @@ const DigitalSignature = require('./DigitalSignature');
 const ScreenRecording = require('./ScreenRecording');
 const RoomMedia = require('./RoomMedia');
 const Admin = require('./Admin');
+const Location = require('./Location');
 
 // Define associations
 Doctor.hasMany(Room, { foreignKey: 'doctorId', as: 'rooms' });
@@ -65,16 +66,64 @@ RoomMedia.belongsTo(Doctor, { foreignKey: 'doctorId', as: 'doctor' });
 Patient.hasMany(RoomMedia, { foreignKey: 'patientId', as: 'media' });
 RoomMedia.belongsTo(Patient, { foreignKey: 'patientId', as: 'patient' });
 
+// Location associations
+Room.hasMany(Location, { foreignKey: 'roomId', as: 'locations' });
+Location.belongsTo(Room, { foreignKey: 'roomId', as: 'room' });
+
 // Sync database
 const syncDatabase = async () => {
   try {
-    await sequelize.sync({ alter: true });
+    // First, sync core models without alter
+    await sequelize.sync({ force: false });
     console.log('✅ Database synchronized successfully');
     
     // Create default admin after database sync
-    await Admin.createDefaultAdmin();
+    try {
+      await Admin.createDefaultAdmin();
+    } catch (adminError) {
+      console.log('Admin creation skipped:', adminError.message);
+    }
   } catch (error) {
     console.error('❌ Database synchronization failed:', error.message);
+    
+    // Try to create individual tables if sync fails
+    try {
+      console.log('🔄 Attempting individual table creation...');
+      
+      // Create Location table manually if it doesn't exist
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS "locations" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "roomId" UUID NOT NULL REFERENCES "rooms"("id") ON DELETE CASCADE,
+          "patientLatitude" DECIMAL(10,8),
+          "patientLongitude" DECIMAL(11,8),
+          "patientAddress" TEXT,
+          "patientLocationTimestamp" TIMESTAMP,
+          "patientLocationAccuracy" FLOAT,
+          "doctorLatitude" DECIMAL(10,8),
+          "doctorLongitude" DECIMAL(11,8),
+          "doctorAddress" TEXT,
+          "doctorLocationTimestamp" TIMESTAMP,
+          "doctorLocationAccuracy" FLOAT,
+          "metadata" JSONB DEFAULT '{}',
+          "status" VARCHAR(50) DEFAULT 'active',
+          "distanceKm" FLOAT,
+          "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      
+      // Create indexes
+      await sequelize.query(`
+        CREATE INDEX IF NOT EXISTS "locations_roomId_idx" ON "locations"("roomId");
+        CREATE INDEX IF NOT EXISTS "locations_patient_coords_idx" ON "locations"("patientLatitude", "patientLongitude");
+        CREATE INDEX IF NOT EXISTS "locations_doctor_coords_idx" ON "locations"("doctorLatitude", "doctorLongitude");
+      `);
+      
+      console.log('✅ Location table created manually');
+    } catch (manualError) {
+      console.error('❌ Manual table creation failed:', manualError.message);
+    }
   }
 };
 
@@ -90,5 +139,6 @@ module.exports = {
   ScreenRecording,
   RoomMedia,
   Admin,
+  Location,
   syncDatabase
 };

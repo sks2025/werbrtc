@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-const { CapturedImage, DigitalSignature, ScreenRecording, RoomMedia, Room, Doctor, Patient } = require('../models');
+const { CapturedImage, DigitalSignature, ScreenRecording, RoomMedia, Room, Doctor, Patient, Location } = require('../models');
 const CallSave = require('../models/callsave');
 
 // Save captured image (for both doctor and patient)
@@ -877,6 +877,12 @@ router.get('/all-media/:roomId', async (req, res) => {
       order: [['capturedAt', 'DESC']]
     });
 
+    // Get location data for the room
+    const locationData = await Location.findOne({
+      where: { roomId: room.id },
+      order: [['createdAt', 'DESC']]
+    });
+
     // Prepare response data
     const allMediaData = {
       roomId: roomId,
@@ -921,13 +927,37 @@ router.get('/all-media/:roomId', async (req, res) => {
         capturedAt: image.capturedAt,
         patient: image.patient
       })),
+      locationData: locationData ? {
+        patient: locationData.patientLatitude && locationData.patientLongitude ? {
+          latitude: parseFloat(locationData.patientLatitude),
+          longitude: parseFloat(locationData.patientLongitude),
+          address: locationData.patientAddress,
+          timestamp: locationData.patientLocationTimestamp,
+          accuracy: locationData.patientLocationAccuracy
+        } : null,
+        doctor: locationData.doctorLatitude && locationData.doctorLongitude ? {
+          latitude: parseFloat(locationData.doctorLatitude),
+          longitude: parseFloat(locationData.doctorLongitude),
+          address: locationData.doctorAddress,
+          timestamp: locationData.doctorLocationTimestamp,
+          accuracy: locationData.doctorLocationAccuracy
+        } : null,
+        distance: locationData.distanceKm ? {
+          kilometers: locationData.distanceKm,
+          miles: Math.round(locationData.distanceKm * 0.621371 * 100) / 100
+        } : null,
+        status: locationData.status,
+        capturedAt: locationData.createdAt,
+        lastUpdated: locationData.updatedAt
+      } : null,
       summary: {
         totalRecordings: recordings.length,
         totalDoctorSignatures: doctorSignatures.length,
         totalPatientSignatures: patientSignatures.length,
         totalDoctorImages: doctorImages.length,
         totalPatientImages: patientImages.length,
-        totalMediaItems: recordings.length + doctorSignatures.length + patientSignatures.length + doctorImages.length + patientImages.length
+        totalMediaItems: recordings.length + doctorSignatures.length + patientSignatures.length + doctorImages.length + patientImages.length,
+        hasLocationData: !!locationData
       }
     };
 

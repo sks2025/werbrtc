@@ -15,6 +15,7 @@ const roomRoutes = require('./routes/rooms');
 const consultationRoutes = require('./routes/consultations');
 const mediaRoutes = require('./routes/media');
 const emailRoutes = require('./routes/email');
+const locationRoutes = require('./routes/location');
 const { router: adminRoutes } = require('./routes/admin');
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/location', locationRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
@@ -173,7 +175,7 @@ io.on('connection', (socket) => {
         const { Room, Patient } = require('./models');
         const roomDetails = await Room.findOne({ 
           where: { roomId: roomId },
-          include: [{ model: Patient, as: 'Patient' }]
+          include: [{ model: Patient, as: 'patient' }]
         });
         
         if (roomDetails) {

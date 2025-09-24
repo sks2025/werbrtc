@@ -68,6 +68,15 @@ export const mediaAPI = {
   saveRecording: (recordingData) => api.post('/media/save-recording', recordingData),
 };
 
+// Location API
+export const locationAPI = {
+  saveLocation: (locationData) => api.post('/location/save', locationData),
+  getRoomLocation: (roomId) => api.get(`/location/room/${roomId}`),
+  getCurrentLocation: (coords) => api.post('/location/get-current', coords),
+  updateStatus: (statusData) => api.patch('/location/status', statusData),
+  getAllRoomsLocation: () => api.get('/location/all-rooms'),
+};
+
 // Health check
 export const healthCheck = () => api.get('/health');
 
