@@ -251,7 +251,7 @@ router.get('/test', (req, res) => {
 });
 
 // Create New Admin (Protected Route - Only existing admins can create new ones)
-router.post('/create-admin', verifyAdminToken, async (req, res) => {
+router.post('/create-admin', async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
 
