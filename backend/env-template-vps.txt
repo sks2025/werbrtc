@@ -1,0 +1,108 @@
+# WebRTC Video Consultation - Production Environment Variables for VPS
+# Copy this file to .env and update the values according to your VPS setup
+
+# ===================================
+# DATABASE CONFIGURATION
+# ===================================
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=webrtc_consultation
+DB_USER=postgres
+DB_PASSWORD=your_secure_password_here
+
+# ===================================
+# SERVER CONFIGURATION
+# ===================================
+NODE_ENV=production
+PORT=3000
+HOST=0.0.0.0
+
+# ===================================
+# JWT CONFIGURATION
+# ===================================
+JWT_SECRET=your_very_secure_jwt_secret_key_here_min_32_chars
+JWT_EXPIRE=24h
+
+# ===================================
+# CORS CONFIGURATION
+# ===================================
+FRONTEND_URL=https://your-domain.com
+ALLOWED_ORIGINS=https://your-domain.com,https://www.your-domain.com
+
+# ===================================
+# FILE UPLOAD CONFIGURATION
+# ===================================
+UPLOAD_DIR=./routes/uploads
+MAX_FILE_SIZE=50MB
+RECORDINGS_DIR=./recordings
+
+# ===================================
+# EMAIL CONFIGURATION (if needed)
+# ===================================
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+EMAIL_FROM=noreply@your-domain.com
+
+# ===================================
+# SECURITY SETTINGS
+# ===================================
+SESSION_SECRET=your_session_secret_here_min_32_chars
+BCRYPT_ROUNDS=12
+RATE_LIMIT_WINDOW=15
+RATE_LIMIT_MAX=100
+
+# ===================================
+# WEBRTC CONFIGURATION
+# ===================================
+# STUN/TURN servers for WebRTC connectivity
+STUN_SERVER=stun:stun.l.google.com:19302
+TURN_SERVER=turn:your-turn-server.com:3478
+TURN_USERNAME=your_turn_username
+TURN_PASSWORD=your_turn_password
+
+# ===================================
+# SSL/TLS CONFIGURATION
+# ===================================
+SSL_KEY_PATH=/path/to/your/ssl/private.key
+SSL_CERT_PATH=/path/to/your/ssl/certificate.crt
+SSL_CA_PATH=/path/to/your/ssl/ca_bundle.crt
+
+# ===================================
+# LOGGING CONFIGURATION
+# ===================================
+LOG_LEVEL=info
+LOG_FILE=./server.log
+LOG_MAX_SIZE=10MB
+LOG_MAX_FILES=5
+
+# ===================================
+# ROOM CONFIGURATION
+# ===================================
+DEFAULT_ROOM_DURATION=3600
+MAX_PARTICIPANTS_PER_ROOM=10
+AUTO_DELETE_INACTIVE_ROOMS=true
+ROOM_CLEANUP_INTERVAL=300000
+
+# ===================================
+# MEDIA CONFIGURATION
+# ===================================
+VIDEO_QUALITY=hd
+AUDIO_QUALITY=high
+RECORDING_FORMAT=webm
+MAX_RECORDING_DURATION=7200
+
+# ===================================
+# ADMIN CONFIGURATION
+# ===================================
+DEFAULT_ADMIN_EMAIL=admin@gmail.com
+DEFAULT_ADMIN_PASSWORD=Admin@123
+
+# ===================================
+# BACKUP CONFIGURATION
+# ===================================
+BACKUP_ENABLED=true
+BACKUP_SCHEDULE=0 2 * * *
+BACKUP_RETENTION_DAYS=30
+BACKUP_PATH=/var/backups/webrtc-db
