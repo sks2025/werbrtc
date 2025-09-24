@@ -237,8 +237,9 @@ const VideoCall = () => {
       });
 
       socketRef.current.on('room-joined', (data) => {
-        console.log('Room joined successfully:', data);
-        console.log('Other users in room:', data.users);
+        console.log('🏠 Room joined successfully:', data);
+        console.log('👥 Other users in room:', data.users);
+        console.log('🎭 My role:', role);
         
         // If doctor, fetch room details to get patient info
         if (role === 'doctor' && data.roomDetails) {
@@ -252,39 +253,45 @@ const VideoCall = () => {
               phone: roomDetails.Patient.phone,
               roomId: roomId
             }));
-            console.log('Patient info stored for doctor:', roomDetails.Patient);
+            console.log('📋 Patient info stored for doctor:', roomDetails.Patient);
           }
         }
         
         // Check if room has too many users
         if (data.users && data.users.length > 1) {
-          console.warn('Room has more than 2 users total, this may cause connection issues');
+          console.warn('⚠️ Room has more than 2 users total, this may cause connection issues');
         }
         
         // Find the other user with different role
         const otherUser = data.users?.find(user => user.role !== role);
+        console.log('🔍 Looking for other user with different role...');
+        console.log('🔍 Other user found:', otherUser);
         
         if (otherUser && role === 'doctor') {
-          console.log('Doctor found existing patient, creating offer...');
+          console.log('👨‍⚕️ Doctor found existing patient, creating offer in 2 seconds...');
           setTimeout(() => {
+            console.log('📞 Doctor creating offer now...');
             createOffer();
-          }, 1000);
+          }, 2000); // Increased delay to ensure everything is ready
         } else if (otherUser && role === 'patient') {
-          console.log('Patient joined room with existing doctor, waiting for offer...');
+          console.log('🤒 Patient joined room with existing doctor, waiting for offer...');
         } else if (!otherUser) {
-          console.log('No other user with different role found, waiting...');
+          console.log('⏳ No other user with different role found, waiting for someone to join...');
         }
       });
 
       socketRef.current.on('user-joined', (data) => {
-        console.log('User joined:', data);
-        console.log('Room users:', data.roomUsers);
-        console.log('Current role:', role);
-        console.log('Local stream ready:', !!localStreamRef.current);
-        console.log('Peer connection ready:', !!peerConnectionRef.current);
+        console.log('👋 New user joined room:', data);
+        console.log('🏠 Room users after join:', data.roomUsers);
+        console.log('🎭 My role:', role);
+        console.log('📹 Local stream ready:', !!localStreamRef.current);
+        console.log('🔗 Peer connection ready:', !!peerConnectionRef.current);
+        console.log('👥 Already connected to remote:', remoteUserConnected);
         
         // Check if the new user has a different role
         const newUser = data.user;
+        console.log('🆕 New user details:', newUser);
+        
         const shouldCreateOffer = role === 'doctor' && 
                                  newUser && 
                                  newUser.role === 'patient' && 
@@ -292,19 +299,24 @@ const VideoCall = () => {
                                  peerConnectionRef.current &&
                                  !remoteUserConnected;
         
+        console.log('🤔 Should create offer?', shouldCreateOffer);
+        console.log('📋 Offer creation conditions:', {
+          isDoctorRole: role === 'doctor',
+          hasNewUser: !!newUser,
+          newUserIsPatient: newUser?.role === 'patient',
+          hasLocalStream: !!localStreamRef.current,
+          hasPeerConnection: !!peerConnectionRef.current,
+          notAlreadyConnected: !remoteUserConnected
+        });
+        
         if (shouldCreateOffer) {
-          console.log('Doctor creating offer for new patient...');
+          console.log('👨‍⚕️ Doctor creating offer for new patient in 3 seconds...');
           setTimeout(() => {
+            console.log('📞 Creating offer for patient now...');
             createOffer();
-          }, 1500);
+          }, 3000); // Increased delay for better stability
         } else {
-          console.log('Not creating offer - conditions not met:', {
-            role,
-            newUserRole: newUser?.role,
-            localStream: !!localStreamRef.current,
-            peerConnection: !!peerConnectionRef.current,
-            alreadyConnected: remoteUserConnected
-          });
+          console.log('⏳ Not creating offer - will wait or conditions not met');
         }
       });
 
@@ -730,21 +742,24 @@ const VideoCall = () => {
   const createOffer = async () => {
     try {
       if (!peerConnectionRef.current) {
-        console.error('Peer connection not initialized');
+        console.error('❌ Peer connection not initialized - cannot create offer');
         return;
       }
 
       if (isProcessingSignaling) {
-        console.warn('Already processing signaling, skipping offer creation');
+        console.warn('⚠️ Already processing signaling, skipping offer creation');
         return;
       }
 
       const pc = peerConnectionRef.current;
-      console.log('Creating offer, current signaling state:', pc.signalingState);
+      console.log('📞 Creating offer...');
+      console.log('🔗 Current signaling state:', pc.signalingState);
+      console.log('🔗 Current connection state:', pc.connectionState);
+      console.log('🔗 Current ICE connection state:', pc.iceConnectionState);
 
       // Check if we can create an offer based on current state
       if (pc.signalingState !== 'stable') {
-        console.warn('Cannot create offer in current state:', pc.signalingState);
+        console.warn('⚠️ Cannot create offer in current state:', pc.signalingState);
         return;
       }
 
@@ -755,29 +770,44 @@ const VideoCall = () => {
         const senders = pc.getSenders();
         const localTracks = localStreamRef.current.getTracks();
         
+        console.log('🎥 Adding local tracks to peer connection...');
+        console.log('📹 Available tracks:', localTracks.map(t => `${t.kind}: ${t.enabled}`));
+        
         // Add tracks if not already added
         localTracks.forEach(track => {
           const existingSender = senders.find(sender => sender.track === track);
           if (!existingSender) {
-            console.log('Adding missing track to peer connection:', track.kind);
+            console.log(`➕ Adding ${track.kind} track to peer connection`);
             pc.addTrack(track, localStreamRef.current);
+          } else {
+            console.log(`✅ ${track.kind} track already added`);
           }
         });
+        
+        console.log('📋 Current senders:', pc.getSenders().length);
+      } else {
+        console.error('❌ No local stream available to add to peer connection');
       }
 
-      console.log('Creating offer...');
+      console.log('🔄 Creating WebRTC offer...');
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
       
-      console.log('Setting local description...');
+      console.log('✅ Offer created successfully');
+      console.log('📝 Setting local description...');
       await pc.setLocalDescription(offer);
       
-      console.log('Sending offer to remote peer, new state:', pc.signalingState);
+      console.log('📡 Sending offer to remote peer via socket...');
+      console.log('🏠 Room ID:', roomId);
+      console.log('🔗 New signaling state:', pc.signalingState);
+      
       socketRef.current.emit('offer', { roomId, offer });
+      console.log('✅ Offer sent successfully!');
     } catch (error) {
-      console.error('Error creating offer:', error);
+      console.error('❌ Error creating offer:', error);
+      console.error('📋 Error details:', error.message);
     } finally {
       setIsProcessingSignaling(false);
     }
@@ -786,31 +816,37 @@ const VideoCall = () => {
   const handleOffer = async (data) => {
     try {
       if (!peerConnectionRef.current) {
-        console.error('Peer connection not initialized');
+        console.error('❌ Peer connection not initialized - cannot handle offer');
         return;
       }
 
       if (isProcessingSignaling) {
-        console.warn('Already processing signaling, queuing offer...');
-        // In a production app, you might want to queue this
+        console.warn('⚠️ Already processing signaling, queuing offer...');
         return;
       }
 
       const pc = peerConnectionRef.current;
-      console.log('Received offer, current signaling state:', pc.signalingState);
+      console.log('📨 Received offer from remote peer!');
+      console.log('🔗 Current signaling state:', pc.signalingState);
+      console.log('🔗 Current connection state:', pc.connectionState);
 
       // Check if we can handle the offer based on current state
       if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
-        console.warn('Cannot handle offer in current state:', pc.signalingState);
+        console.warn('⚠️ Cannot handle offer in current state:', pc.signalingState);
         return;
       }
 
       // If we have a local offer pending, we need to handle collision
       if (pc.signalingState === 'have-local-offer') {
-        console.log('Offer collision detected, handling gracefully...');
-        // In a real implementation, you might want to compare offer timestamps
-        // For now, we'll just ignore this offer to prevent the stable state error
-        return;
+        console.log('⚡ Offer collision detected, handling gracefully...');
+        // Patient should accept doctor's offer in case of collision
+        if (role === 'patient') {
+          console.log('🤒 Patient accepting doctor\'s offer (collision resolution)');
+          // Continue to process the offer
+        } else {
+          console.log('👨‍⚕️ Doctor ignoring patient\'s offer (collision resolution)');
+          return;
+        }
       }
 
       setIsProcessingSignaling(true);
@@ -820,29 +856,37 @@ const VideoCall = () => {
         const senders = pc.getSenders();
         const localTracks = localStreamRef.current.getTracks();
         
+        console.log('🎥 Adding local tracks before creating answer...');
+        console.log('📹 Available tracks:', localTracks.map(t => `${t.kind}: ${t.enabled}`));
+        
         // Add tracks if not already added
         localTracks.forEach(track => {
           const existingSender = senders.find(sender => sender.track === track);
           if (!existingSender) {
-            console.log('Adding missing track to peer connection:', track.kind);
+            console.log(`➕ Adding ${track.kind} track to peer connection`);
             pc.addTrack(track, localStreamRef.current);
+          } else {
+            console.log(`✅ ${track.kind} track already added`);
           }
         });
       }
 
-      console.log('Setting remote description...');
+      console.log('📝 Setting remote description with received offer...');
       await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
       
-      console.log('Creating answer...');
+      console.log('🔄 Creating answer for the offer...');
       const answer = await pc.createAnswer();
       
-      console.log('Setting local description...');
+      console.log('📝 Setting local description with our answer...');
       await pc.setLocalDescription(answer);
       
-      console.log('Sending answer to remote peer');
+      console.log('📡 Sending answer back to remote peer...');
+      console.log('🏠 Room ID:', roomId);
       socketRef.current.emit('answer', { roomId, answer });
+      console.log('✅ Answer sent successfully!');
     } catch (error) {
-      console.error('Error handling offer:', error);
+      console.error('❌ Error handling offer:', error);
+      console.error('📋 Error details:', error.message);
     } finally {
       setIsProcessingSignaling(false);
     }
@@ -851,31 +895,38 @@ const VideoCall = () => {
   const handleAnswer = async (data) => {
     try {
       if (!peerConnectionRef.current) {
-        console.error('Peer connection not initialized');
+        console.error('❌ Peer connection not initialized - cannot handle answer');
         return;
       }
 
       if (isProcessingSignaling) {
-        console.warn('Already processing signaling, queuing answer...');
+        console.warn('⚠️ Already processing signaling, queuing answer...');
         return;
       }
 
       const pc = peerConnectionRef.current;
-      console.log('Received answer, current signaling state:', pc.signalingState);
+      console.log('📨 Received answer from remote peer!');
+      console.log('🔗 Current signaling state:', pc.signalingState);
+      console.log('🔗 Current connection state:', pc.connectionState);
 
       // Check if we can handle the answer based on current state
       if (pc.signalingState !== 'have-local-offer') {
-        console.warn('Cannot handle answer in current state:', pc.signalingState);
+        console.warn('⚠️ Cannot handle answer in current state:', pc.signalingState);
+        console.warn('Expected: have-local-offer, Got:', pc.signalingState);
         return;
       }
 
       setIsProcessingSignaling(true);
 
-      console.log('Setting remote description with answer...');
+      console.log('📝 Setting remote description with received answer...');
       await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-      console.log('Answer handled successfully, connection state:', pc.connectionState);
+      console.log('✅ Answer handled successfully!');
+      console.log('🔗 New connection state:', pc.connectionState);
+      console.log('🔗 New signaling state:', pc.signalingState);
+      console.log('🧊 ICE connection state:', pc.iceConnectionState);
     } catch (error) {
-      console.error('Error handling answer:', error);
+      console.error('❌ Error handling answer:', error);
+      console.error('📋 Error details:', error.message);
     } finally {
       setIsProcessingSignaling(false);
     }
@@ -884,15 +935,20 @@ const VideoCall = () => {
   const handleIceCandidate = async (data) => {
     try {
       if (!peerConnectionRef.current) {
-        console.error('Peer connection not initialized');
+        console.error('❌ Peer connection not initialized - cannot handle ICE candidate');
         return;
       }
 
-      console.log('Received ICE candidate, adding to peer connection...');
+      console.log('🧊 Received ICE candidate from remote peer');
+      console.log('🔗 Current signaling state:', peerConnectionRef.current.signalingState);
+      console.log('🧊 ICE candidate type:', data.candidate.candidate);
+      
       await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-      console.log('ICE candidate added successfully');
+      console.log('✅ ICE candidate added successfully');
+      console.log('🧊 Updated ICE connection state:', peerConnectionRef.current.iceConnectionState);
     } catch (error) {
-      console.error('Error handling ICE candidate:', error);
+      console.error('❌ Error handling ICE candidate:', error);
+      console.error('📋 Error details:', error.message);
     }
   };
 
@@ -1518,10 +1574,14 @@ const VideoCall = () => {
         }}>
           <div>Room: {roomId}</div>
           <div>Role: {role}</div>
-          <div>Connected: {isConnected ? '✅' : '❌'}</div>
+          <div>Socket: {isConnected ? '✅' : '❌'}</div>
           <div>Remote User: {remoteUserConnected ? '✅' : '❌'}</div>
           <div>Call Active: {isCallActive ? '✅' : '❌'}</div>
           <div>Local Stream: {localStreamRef.current ? '✅' : '❌'}</div>
+          <div>Peer Connection: {peerConnectionRef.current ? '✅' : '❌'}</div>
+          <div>Connection State: {peerConnectionRef.current?.connectionState || 'N/A'}</div>
+          <div>ICE State: {peerConnectionRef.current?.iceConnectionState || 'N/A'}</div>
+          <div>Signaling State: {peerConnectionRef.current?.signalingState || 'N/A'}</div>
           <div>User Info: {userInfo ? userInfo.name || userInfo.email : 'Loading...'}</div>
           <div>Socket ID: {socketRef.current?.id || 'Not connected'}</div>
           <div>Server: https://api.stechooze.com</div>
