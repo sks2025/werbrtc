@@ -85,6 +85,25 @@ const VideoCall = () => {
     iceCandidatePoolSize: 10
   };
 
+  // Check for pending stream when video element becomes available
+  useEffect(() => {
+    if (localVideoRef.current && window.pendingLocalStream) {
+      console.log('🔄 Video element now available, setting pending stream...');
+      localVideoRef.current.srcObject = window.pendingLocalStream;
+      localVideoRef.current.style.display = 'block';
+      localVideoRef.current.style.visibility = 'visible';
+      
+      localVideoRef.current.play()
+        .then(() => {
+          console.log('✅ Pending local video stream set and playing successfully');
+          delete window.pendingLocalStream; // Clean up
+        })
+        .catch(error => {
+          console.warn('⚠️ Failed to play pending stream:', error);
+        });
+    }
+  }, [localVideoRef.current]); // Re-run when ref changes
+
   useEffect(() => {
     initializeCall();
     initializeLocationTracking();
@@ -529,38 +548,58 @@ const VideoCall = () => {
       console.log('Stream tracks:', stream.getTracks().map(t => `${t.kind}: ${t.enabled}`));
       localStreamRef.current = stream;
       
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        console.log('✅ Local video stream set successfully');
-        console.log('📱 Local video element ready:', !!localVideoRef.current);
-        console.log('🎬 Stream active:', stream.active);
-        console.log('🎯 Video tracks:', stream.getVideoTracks().length);
-        console.log('🎵 Audio tracks:', stream.getAudioTracks().length);
-        
-        // Ensure video element is visible
-        localVideoRef.current.style.display = 'block';
-        localVideoRef.current.style.visibility = 'visible';
-        console.log('👁️ Local video visibility set');
-        
-        // Ensure video plays
-        try {
-          await localVideoRef.current.play();
-          console.log('▶️ Local video is now playing successfully');
-        } catch (playError) {
-          console.warn('⚠️ Local video autoplay failed:', playError);
-          // Try to play again after a short delay
-          setTimeout(async () => {
+      // Wait for component to be fully mounted before setting video
+      const setLocalVideo = async () => {
+        // Multiple attempts to ensure ref is available
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+            console.log(`✅ Local video stream set successfully (attempt ${attempt})`);
+            console.log('📱 Local video element ready:', !!localVideoRef.current);
+            console.log('🎬 Stream active:', stream.active);
+            console.log('🎯 Video tracks:', stream.getVideoTracks().length);
+            console.log('🎵 Audio tracks:', stream.getAudioTracks().length);
+            
+            // Ensure video element is visible
+            localVideoRef.current.style.display = 'block';
+            localVideoRef.current.style.visibility = 'visible';
+            console.log('👁️ Local video visibility set');
+            
+            // Ensure video plays
             try {
               await localVideoRef.current.play();
-              console.log('✅ Local video play retry successful');
-            } catch (retryError) {
-              console.error('❌ Local video play retry failed:', retryError);
+              console.log('▶️ Local video is now playing successfully');
+              break; // Success, exit loop
+            } catch (playError) {
+              console.warn('⚠️ Local video autoplay failed:', playError);
+              // Try to play again after a short delay
+              setTimeout(async () => {
+                try {
+                  if (localVideoRef.current) {
+                    await localVideoRef.current.play();
+                    console.log('✅ Local video play retry successful');
+                  }
+                } catch (retryError) {
+                  console.error('❌ Local video play retry failed:', retryError);
+                }
+              }, 500);
+              break; // Exit loop even if play failed, stream is set
             }
-          }, 500);
+          } else {
+            console.warn(`⏳ Local video ref not ready yet (attempt ${attempt}/5), waiting...`);
+            if (attempt < 5) {
+              await new Promise(resolve => setTimeout(resolve, 200)); // Wait 200ms
+            } else {
+              console.error('❌ Local video ref is null after 5 attempts! Component may not be mounted properly.');
+              // Store stream for later use when component mounts
+              window.pendingLocalStream = stream;
+              console.log('💾 Stored stream for later use when video element becomes available');
+            }
+          }
         }
-      } else {
-        console.error('Local video ref is null!');
-      }
+      };
+
+      await setLocalVideo();
       
       // Add tracks to peer connection if it exists
       addLocalStreamToPeerConnection();
@@ -1554,16 +1593,28 @@ const VideoCall = () => {
             muted
             className="local-video"
             onLoadedMetadata={() => {
-              console.log('Local video metadata loaded');
-              console.log('Local video dimensions:', localVideoRef.current?.videoWidth, 'x', localVideoRef.current?.videoHeight);
+              console.log('📊 Local video metadata loaded');
+              console.log('📐 Local video dimensions:', localVideoRef.current?.videoWidth, 'x', localVideoRef.current?.videoHeight);
+              
+              // Check if we have a pending stream to set
+              if (window.pendingLocalStream && localVideoRef.current) {
+                console.log('🔄 Setting pending stream on metadata load...');
+                localVideoRef.current.srcObject = window.pendingLocalStream;
+                delete window.pendingLocalStream;
+              }
             }}
             onCanPlay={() => {
-              console.log('Local video can play');
-              console.log('Local video ready state:', localVideoRef.current?.readyState);
+              console.log('✅ Local video can play');
+              console.log('📊 Local video ready state:', localVideoRef.current?.readyState);
             }}
-            onError={(e) => console.error('Local video error:', e)}
-            onPlay={() => console.log('Local video started playing')}
-            onPause={() => console.log('Local video paused')}
+            onError={(e) => {
+              console.error('❌ Local video error:', e);
+              console.error('Error details:', e.target.error);
+            }}
+            onPlay={() => console.log('▶️ Local video started playing')}
+            onPause={() => console.log('⏸️ Local video paused')}
+            onLoadStart={() => console.log('🔄 Local video load started')}
+            onWaiting={() => console.log('⏳ Local video waiting for data')}
           />
           <div className="video-label">You</div>
         </div>
