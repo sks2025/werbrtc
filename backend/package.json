@@ -5,7 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "setup-db": "node setup-database.js --seed",
+    "reset-db": "node setup-database.js --force --seed",
+    "db-no-seed": "node setup-database.js --force",
+    "deploy": "chmod +x deploy-vps.sh && ./deploy-vps.sh",
+    "test-db": "node -e \"require('./config/database').testConnection()\""
   },
   "dependencies": {
     "axios": "^1.12.2",

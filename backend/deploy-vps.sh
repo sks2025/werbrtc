@@ -83,18 +83,57 @@ create_database() {
 setup_database() {
     print_status "Setting up database tables..."
     
-    if [ ! -f "vps-database-setup.sql" ]; then
-        print_error "Database setup script not found: vps-database-setup.sql"
-        exit 1
+    # Method 1: Try Node.js setup script (recommended)
+    if [ -f "setup-database.js" ] && command -v node &> /dev/null; then
+        print_status "Using Node.js database setup script..."
+        
+        # Create temporary .env for setup if not exists
+        if [ ! -f ".env" ]; then
+            cat > .env << EOF
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=$DB_NAME
+DB_USER=$DB_USER
+DB_PASSWORD=$DB_PASSWORD
+NODE_ENV=production
+EOF
+        fi
+        
+        if node setup-database.js --force --seed; then
+            print_success "Database setup completed via Node.js script"
+            return 0
+        else
+            print_warning "Node.js setup failed, trying SQL method..."
+        fi
     fi
     
-    export PGPASSWORD=$DB_PASSWORD
-    if psql -h localhost -U $DB_USER -d $DB_NAME -f vps-database-setup.sql; then
-        print_success "Database tables created successfully"
-    else
-        print_error "Failed to create database tables"
-        exit 1
+    # Method 2: Try SQL reset script
+    if [ -f "reset-and-setup-database.sql" ]; then
+        print_status "Using SQL reset script..."
+        export PGPASSWORD=$DB_PASSWORD
+        if echo "yes" | psql -h localhost -U $DB_USER -d $DB_NAME -f reset-and-setup-database.sql; then
+            print_success "Database setup completed via SQL script"
+            return 0
+        else
+            print_warning "SQL reset script failed, trying legacy method..."
+        fi
     fi
+    
+    # Method 3: Legacy SQL setup
+    if [ -f "vps-database-setup.sql" ]; then
+        print_status "Using legacy SQL setup script..."
+        export PGPASSWORD=$DB_PASSWORD
+        if psql -h localhost -U $DB_USER -d $DB_NAME -f vps-database-setup.sql; then
+            print_success "Database setup completed via legacy SQL script"
+            return 0
+        else
+            print_error "All database setup methods failed"
+            exit 1
+        fi
+    fi
+    
+    print_error "No database setup script found"
+    exit 1
 }
 
 # Setup environment variables
