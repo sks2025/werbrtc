@@ -179,7 +179,7 @@ const VideoCall = () => {
       await getUserMedia();
 
       // Initialize Socket.io connection after media is ready
-      socketRef.current = io('ws://localhost:5000', {
+      socketRef.current = io('https://api.stechooze.com', {
         transports: ['websocket'],
         timeout: 20000,
         forceNew: true
