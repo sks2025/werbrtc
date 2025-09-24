@@ -179,16 +179,42 @@ const VideoCall = () => {
       await getUserMedia();
 
       // Initialize Socket.io connection after media is ready
+      console.log('Connecting to socket server at: https://api.stechooze.com');
       socketRef.current = io('https://api.stechooze.com', {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         timeout: 20000,
-        forceNew: true
+        forceNew: true,
+        reconnection: true,
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1000
       });
 
       socketRef.current.on('connect', () => {
-        console.log('Connected to signaling server');
+        console.log('✅ Connected to signaling server successfully');
+        console.log('Socket ID:', socketRef.current.id);
         setIsConnected(true);
         socketRef.current.emit('join-room', { roomId, role, userInfo: currentUserInfo });
+      });
+
+      socketRef.current.on('connect_error', (error) => {
+        console.error('❌ Socket connection error:', error);
+        console.error('Connection failed to: https://api.stechooze.com');
+        setIsConnected(false);
+      });
+
+      socketRef.current.on('disconnect', (reason) => {
+        console.warn('⚠️ Socket disconnected:', reason);
+        setIsConnected(false);
+        setRemoteUserConnected(false);
+      });
+
+      socketRef.current.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
+        setIsConnected(true);
+      });
+
+      socketRef.current.on('reconnect_error', (error) => {
+        console.error('❌ Socket reconnection failed:', error);
       });
 
       socketRef.current.on('room-joined', (data) => {
@@ -505,25 +531,30 @@ const VideoCall = () => {
       
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        console.log('Local video stream set successfully');
+        console.log('✅ Local video stream set successfully');
+        console.log('📱 Local video element ready:', !!localVideoRef.current);
+        console.log('🎬 Stream active:', stream.active);
+        console.log('🎯 Video tracks:', stream.getVideoTracks().length);
+        console.log('🎵 Audio tracks:', stream.getAudioTracks().length);
         
         // Ensure video element is visible
         localVideoRef.current.style.display = 'block';
         localVideoRef.current.style.visibility = 'visible';
+        console.log('👁️ Local video visibility set');
         
         // Ensure video plays
         try {
           await localVideoRef.current.play();
-          console.log('Local video is now playing');
+          console.log('▶️ Local video is now playing successfully');
         } catch (playError) {
-          console.warn('Local video autoplay failed:', playError);
+          console.warn('⚠️ Local video autoplay failed:', playError);
           // Try to play again after a short delay
           setTimeout(async () => {
             try {
               await localVideoRef.current.play();
-              console.log('Local video play retry successful');
+              console.log('✅ Local video play retry successful');
             } catch (retryError) {
-              console.error('Local video play retry failed:', retryError);
+              console.error('❌ Local video play retry failed:', retryError);
             }
           }, 500);
         }
@@ -568,27 +599,33 @@ const VideoCall = () => {
         
         if (remoteVideoRef.current && event.streams[0]) {
           const remoteStream = event.streams[0];
-          console.log('Remote stream tracks:', remoteStream.getTracks().map(t => `${t.kind}: ${t.enabled}`));
+          console.log('🎥 Received remote track event with stream');
+          console.log('📹 Remote stream tracks:', remoteStream.getTracks().map(t => `${t.kind}: ${t.enabled}`));
           
-          remoteVideoRef.current.srcObject = remoteStream;
-          console.log('Remote video stream set successfully');
-          
-          // Set remote user connected only when we actually receive the stream
-          setRemoteUserConnected(true);
-          
-          // Ensure remote video plays
-          try {
-            await remoteVideoRef.current.play();
-            console.log('Remote video started playing');
-          } catch (playError) {
-            console.warn('Remote video autoplay failed:', playError);
-            // Try to play after user interaction
-            const playPromise = remoteVideoRef.current.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(error => {
-                console.error('Remote video play failed:', error);
-              });
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream;
+            console.log('✅ Remote video stream set successfully');
+            
+            // Set remote user connected only when we actually receive the stream
+            setRemoteUserConnected(true);
+            console.log('👥 Remote user connected - video should now be visible');
+            
+            // Ensure remote video plays
+            try {
+              await remoteVideoRef.current.play();
+              console.log('▶️ Remote video started playing successfully');
+            } catch (playError) {
+              console.warn('⚠️ Remote video autoplay failed:', playError);
+              // Try to play after user interaction
+              const playPromise = remoteVideoRef.current.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                  console.error('❌ Remote video play failed:', error);
+                });
+              }
             }
+          } else {
+            console.error('❌ Remote video ref is null - cannot display video');
           }
         } else {
           console.warn('Remote video ref or stream not available');
@@ -1427,28 +1464,56 @@ const VideoCall = () => {
       </div>
 
       {/* React DevTools Notification - Only in development */}
+      {/* Debug Information */}
       {process.env.NODE_ENV === 'development' && (
         <div style={{
-          backgroundColor: '#e3f2fd',
-          border: '1px solid #2196f3',
-          borderRadius: '4px',
-          padding: '8px 12px',
-          margin: '10px',
-          fontSize: '14px',
-          color: '#1976d2'
+          position: 'fixed',
+          top: '10px',
+          left: '10px',
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '10px',
+          borderRadius: '5px',
+          fontSize: '12px',
+          zIndex: 1000
         }}>
-          💡 <strong>Development Tip:</strong> Install{' '}
-          <a 
-            href="https://react.dev/link/react-devtools" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            style={{ color: '#1976d2', textDecoration: 'underline' }}
-          >
-            React DevTools
-          </a>{' '}
-          for better debugging experience
+          <div>Room: {roomId}</div>
+          <div>Role: {role}</div>
+          <div>Connected: {isConnected ? '✅' : '❌'}</div>
+          <div>Remote User: {remoteUserConnected ? '✅' : '❌'}</div>
+          <div>Call Active: {isCallActive ? '✅' : '❌'}</div>
+          <div>Local Stream: {localStreamRef.current ? '✅' : '❌'}</div>
+          <div>User Info: {userInfo ? userInfo.name || userInfo.email : 'Loading...'}</div>
+          <div>Socket ID: {socketRef.current?.id || 'Not connected'}</div>
+          <div>Server: https://api.stechooze.com</div>
         </div>
       )}
+
+      {/* Connection Status Indicator */}
+      <div style={{
+        position: 'fixed',
+        top: '10px',
+        right: '10px',
+        background: isConnected ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)',
+        border: `2px solid ${isConnected ? '#00ff00' : '#ff0000'}`,
+        color: isConnected ? '#00ff00' : '#ff0000',
+        padding: '8px 16px',
+        borderRadius: '20px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <div style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: isConnected ? '#00ff00' : '#ff0000'
+        }}></div>
+        {isConnected ? 'LIVE' : 'DISCONNECTED'}
+      </div>
 
       <div className="video-container">
         <div className="remote-video-container">
