@@ -32,11 +32,13 @@ const Admin = sequelize.define('Admin', {
   },
   isActive: {
     type: DataTypes.BOOLEAN,
-    defaultValue: true
+    defaultValue: true,
+    field: 'isactive'
   },
   lastLogin: {
     type: DataTypes.DATE,
-    allowNull: true
+    allowNull: true,
+    field: 'lastlogin' 
   }
 }, {
   tableName: 'admins',
