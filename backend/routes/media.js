@@ -1,17 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { CapturedImage, DigitalSignature, ScreenRecording, Room, Doctor, Patient } = require('../models');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+
+const { CapturedImage, DigitalSignature, ScreenRecording, RoomMedia, Room, Doctor, Patient } = require('../models');
 
 // Save captured image
 router.post('/capture-image', async (req, res) => {
   try {
     const { roomId, doctorId, patientId, imageData, fileName, description } = req.body;
 
-    if (!roomId || !doctorId || !patientId || !imageData || !fileName) {
+    if (!roomId  || !imageData || !fileName) {
       return res.status(400).json({ 
         error: 'Missing required fields: roomId, doctorId, patientId, imageData, fileName' 
       });
     }
+
+    const base64Data = imageData.split(",")[1];
+    const imageBuffer = Buffer.from(base64Data, "base64");
+    const folderPath = path.join(__dirname, "uploads");
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath);
+    }
+    const filePath = path.join(folderPath, `image_${Date.now()}.png`);
+    fs.writeFileSync(filePath, imageBuffer);
+    const imageUrl = filePath;
+    console.log(imageUrl)
 
     // Find the actual room by roomId to get the UUID
     const room = await Room.findOne({ where: { roomId: roomId } });
@@ -23,9 +38,7 @@ router.post('/capture-image', async (req, res) => {
     }
 
     const capturedImage = await CapturedImage.create({
-      roomId: room.id, // Use the actual UUID from the room
-      doctorId,
-      patientId,
+      roomId: room.id, // Use the actual UUID from the roo
       imageData,
       fileName,
       description: description || null
@@ -168,20 +181,30 @@ router.post('/start-recording', async (req, res) => {
 router.post('/save-recording', async (req, res) => {
   try {
     const { recordingId, recordingData, duration, fileSize } = req.body;
+    // console.log("mmmsmsmms",recordingId, recordingData, duration, fileSize,"kskskkssk")
 
-    if (!recordingId || !recordingData) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: recordingId, recordingData' 
-      });
+    const base64Data = recordingData.split(",")[1];
+
+    const videoBuffer = Buffer.from(base64Data, "base64");
+
+
+    const folderPath = path.join(__dirname, "uploads");
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath);
     }
 
-    const recording = await ScreenRecording.findByPk(recordingId);
-    if (!recording) {
-      return res.status(404).json({ error: 'Recording not found' });
-    }
+    // File name unique रखना
+    const filePath = path.join(folderPath, `recording_${Date.now()}.webm`);
+
+    // Save file
+    fs.writeFileSync(filePath, videoBuffer);
+
+   
+
+  
 
     await recording.update({
-      recordingData,
+      recordingData: filePath,
       duration: duration || null,
       fileSize: fileSize || null,
       endedAt: new Date(),
@@ -230,7 +253,7 @@ router.get('/room/:roomId', async (req, res) => {
     const imageQuery = {
       where: { roomId: actualRoomId },
       include: [
-        { model: Doctor, as: 'doctor', attributes: ['name', 'email'] },
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] },
         { model: Patient, as: 'patient', attributes: ['name', 'email'] }
       ],
       order: [['capturedAt', 'DESC']]
@@ -239,7 +262,7 @@ router.get('/room/:roomId', async (req, res) => {
     const signatureQuery = {
       where: { roomId: actualRoomId },
       include: [
-        { model: Doctor, as: 'doctor', attributes: ['name', 'email'] },
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] },
         { model: Patient, as: 'patient', attributes: ['name', 'email'] }
       ],
       order: [['signedAt', 'DESC']]
@@ -248,7 +271,7 @@ router.get('/room/:roomId', async (req, res) => {
     const recordingQuery = {
       where: { roomId: actualRoomId },
       include: [
-        { model: Doctor, as: 'doctor', attributes: ['name', 'email'] },
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] },
         { model: Patient, as: 'patient', attributes: ['name', 'email'] }
       ],
       order: [['startedAt', 'DESC']]
@@ -287,6 +310,249 @@ router.get('/room/:roomId', async (req, res) => {
     console.error('Error fetching room media:', error);
     res.status(500).json({ 
       error: 'Failed to fetch room media',
+      details: error.message 
+    });
+  }
+});
+
+// ===== UNIFIED MEDIA ROUTES (NEW) =====
+
+// Save any media type to unified RoomMedia table
+router.post('/save-media', async (req, res) => {
+  try {
+    const { 
+      roomId, 
+      mediaType, 
+      doctorId, 
+      patientId, 
+      mediaData, 
+      fileName, 
+      metadata = {},
+      // Screen recording specific
+      duration,
+      fileSize,
+      startedAt,
+      endedAt,
+      // Signature specific
+      signedBy,
+      purpose,
+      // Image specific
+      description,
+      // Common
+      status = 'completed'
+    } = req.body;
+
+    // Validate required fields
+    if (!roomId || !mediaType || !mediaData) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: roomId, mediaType, mediaData' 
+      });
+    }
+
+    // Validate mediaType
+    if (!['screen_recording', 'digital_signature', 'captured_image'].includes(mediaType)) {
+      return res.status(400).json({ 
+        error: 'Invalid mediaType. Must be: screen_recording, digital_signature, or captured_image' 
+      });
+    }
+
+    // Find the actual room by roomId to get the UUID
+    const room = await Room.findOne({ where: { roomId: roomId } });
+    if (!room) {
+      return res.status(404).json({ 
+        error: 'Room not found',
+        details: `Room with ID ${roomId} does not exist`
+      });
+    }
+
+    // Type-specific validation
+    if (mediaType === 'digital_signature' && !signedBy) {
+      return res.status(400).json({ error: 'signedBy is required for digital signatures' });
+    }
+
+    // Create unified media entry
+    const mediaEntry = await RoomMedia.create({
+      roomId: room.id, // Use the actual UUID from the room
+      mediaType,
+      doctorId,
+      patientId,
+      mediaData,
+      fileName,
+      metadata: {
+        ...metadata,
+        originalRoomId: roomId // Keep original roomId for reference
+      },
+      // Screen recording fields
+      duration,
+      fileSize,
+      startedAt: startedAt ? new Date(startedAt) : null,
+      endedAt: endedAt ? new Date(endedAt) : null,
+      // Signature fields
+      signedBy,
+      purpose,
+      // Image fields
+      description,
+      // Common fields
+      status,
+      capturedAt: new Date()
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `${mediaType.replace('_', ' ')} saved successfully`,
+      data: {
+        id: mediaEntry.id,
+        mediaType: mediaEntry.mediaType,
+        fileName: mediaEntry.fileName,
+        capturedAt: mediaEntry.capturedAt,
+        status: mediaEntry.status
+      }
+    });
+  } catch (error) {
+    console.error('Error saving unified media:', error);
+    res.status(500).json({ 
+      error: 'Failed to save media',
+      details: error.message 
+    });
+  }
+});
+
+// Get all room media from unified table
+router.get('/room/:roomId/unified', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { role, userId, mediaType } = req.query;
+
+    // Find the actual room by roomId to get the UUID
+    const room = await Room.findOne({ where: { roomId: roomId } });
+    if (!room) {
+      return res.status(404).json({ 
+        error: 'Room not found',
+        details: `Room with ID ${roomId} does not exist`
+      });
+    }
+
+    // Build query
+    const whereClause = { roomId: room.id };
+    if (mediaType) {
+      whereClause.mediaType = mediaType;
+    }
+
+    // Role-based filtering
+    let mediaQuery = {
+      where: whereClause,
+      include: [
+        { model: Doctor, as: 'doctor', attributes: ['firstName', 'lastName', 'email'] },
+        { model: Patient, as: 'patient', attributes: ['name', 'email'] }
+      ],
+      order: [['capturedAt', 'DESC']]
+    };
+
+    let media;
+    if (role === 'doctor') {
+      // Doctors can see all media
+      media = await RoomMedia.findAll(mediaQuery);
+    } else {
+      // Patients have restricted access
+      media = [];
+      console.log(`Access restricted: Patient ${userId} attempted to access room ${roomId} media`);
+    }
+
+    // Group media by type for easier frontend handling
+    const groupedMedia = {
+      screen_recordings: media.filter(m => m.mediaType === 'screen_recording'),
+      digital_signatures: media.filter(m => m.mediaType === 'digital_signature'),
+      captured_images: media.filter(m => m.mediaType === 'captured_image'),
+      all: media
+    };
+
+    res.status(200).json({
+      success: true,
+      data: groupedMedia,
+      total: media.length,
+      message: role === 'doctor' ? 'All media retrieved' : 'Access restricted to doctor-only content'
+    });
+  } catch (error) {
+    console.error('Error fetching unified room media:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch room media',
+      details: error.message 
+    });
+  }
+});
+
+// Update media status (for live recordings)
+router.patch('/media/:mediaId/status', async (req, res) => {
+  try {
+    const { mediaId } = req.params;
+    const { status, endedAt, duration, fileSize, mediaData } = req.body;
+
+    const media = await RoomMedia.findByPk(mediaId);
+    if (!media) {
+      return res.status(404).json({ error: 'Media not found' });
+    }
+
+    const updateData = { status };
+    if (endedAt) updateData.endedAt = new Date(endedAt);
+    if (duration) updateData.duration = duration;
+    if (fileSize) updateData.fileSize = fileSize;
+    if (mediaData) updateData.mediaData = mediaData;
+
+    await media.update(updateData);
+
+    res.status(200).json({
+      success: true,
+      message: 'Media status updated successfully',
+      data: {
+        id: media.id,
+        status: media.status,
+        endedAt: media.endedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error updating media status:', error);
+    res.status(500).json({ 
+      error: 'Failed to update media status',
+      details: error.message 
+    });
+  }
+});
+
+// Save live recording chunks (for real-time streaming)
+router.post('/media/:mediaId/chunk', async (req, res) => {
+  try {
+    const { mediaId } = req.params;
+    const { chunkData, chunkIndex, timestamp } = req.body;
+
+    const media = await RoomMedia.findByPk(mediaId);
+    if (!media) {
+      return res.status(404).json({ error: 'Media not found' });
+    }
+
+    // Update live chunks array
+    const currentChunks = media.liveChunks || [];
+    currentChunks.push({
+      index: chunkIndex,
+      timestamp,
+      size: chunkData.length,
+      received_at: new Date()
+    });
+
+    await media.update({
+      liveChunks: currentChunks,
+      isLiveStreaming: true
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Chunk saved successfully',
+      chunkIndex,
+      totalChunks: currentChunks.length
+    });
+  } catch (error) {
+    console.error('Error saving media chunk:', error);
+    res.status(500).json({ 
+      error: 'Failed to save chunk',
       details: error.message 
     });
   }

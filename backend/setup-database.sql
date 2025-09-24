@@ -81,6 +81,42 @@ CREATE TABLE IF NOT EXISTS "Consultations" (
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create Unified Room Media table (NEW - stores all media types in one table)
+CREATE TABLE IF NOT EXISTS "RoomMedia" (
+    "id" SERIAL PRIMARY KEY,
+    "roomId" VARCHAR(255) REFERENCES "Rooms"("roomId") ON DELETE CASCADE,
+    "mediaType" VARCHAR(50) NOT NULL CHECK ("mediaType" IN ('screen_recording', 'digital_signature', 'captured_image')),
+    "doctorId" INTEGER REFERENCES "Doctors"("doctorId") ON DELETE SET NULL,
+    "patientId" INTEGER REFERENCES "Patients"("patientId") ON DELETE SET NULL,
+    "mediaData" TEXT NOT NULL, -- Base64 data or file path
+    "fileName" VARCHAR(255),
+    "metadata" JSONB DEFAULT '{}', -- Additional metadata as JSON
+    
+    -- Screen recording specific fields
+    "duration" INTEGER, -- Duration in seconds
+    "fileSize" INTEGER, -- File size in bytes
+    "startedAt" TIMESTAMP WITH TIME ZONE,
+    "endedAt" TIMESTAMP WITH TIME ZONE,
+    
+    -- Signature specific fields
+    "signedBy" VARCHAR(10) CHECK ("signedBy" IN ('doctor', 'patient')),
+    "purpose" VARCHAR(255),
+    
+    -- Image specific fields
+    "description" TEXT,
+    
+    -- Common fields
+    "status" VARCHAR(20) DEFAULT 'completed' CHECK ("status" IN ('recording', 'completed', 'failed', 'processing')),
+    "capturedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Live streaming support
+    "isLiveStreaming" BOOLEAN DEFAULT false,
+    "liveChunks" JSONB DEFAULT '[]', -- Store live chunk information
+    
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS "idx_doctors_email" ON "Doctors"("email");
 CREATE INDEX IF NOT EXISTS "idx_patients_phone" ON "Patients"("phone");
@@ -89,6 +125,14 @@ CREATE INDEX IF NOT EXISTS "idx_rooms_status" ON "Rooms"("status");
 CREATE INDEX IF NOT EXISTS "idx_consultations_room" ON "Consultations"("roomId");
 CREATE INDEX IF NOT EXISTS "idx_consultations_doctor" ON "Consultations"("doctorId");
 CREATE INDEX IF NOT EXISTS "idx_consultations_patient" ON "Consultations"("patientId");
+
+-- Indexes for RoomMedia table
+CREATE INDEX IF NOT EXISTS "idx_roommedia_room_type" ON "RoomMedia"("roomId", "mediaType");
+CREATE INDEX IF NOT EXISTS "idx_roommedia_captured_at" ON "RoomMedia"("capturedAt");
+CREATE INDEX IF NOT EXISTS "idx_roommedia_status" ON "RoomMedia"("status");
+CREATE INDEX IF NOT EXISTS "idx_roommedia_doctor" ON "RoomMedia"("doctorId");
+CREATE INDEX IF NOT EXISTS "idx_roommedia_patient" ON "RoomMedia"("patientId");
+CREATE INDEX IF NOT EXISTS "idx_roommedia_live_streaming" ON "RoomMedia"("isLiveStreaming") WHERE "isLiveStreaming" = true;
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -104,6 +148,7 @@ CREATE TRIGGER update_doctors_updated_at BEFORE UPDATE ON "Doctors" FOR EACH ROW
 CREATE TRIGGER update_patients_updated_at BEFORE UPDATE ON "Patients" FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_rooms_updated_at BEFORE UPDATE ON "Rooms" FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_consultations_updated_at BEFORE UPDATE ON "Consultations" FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_roommedia_updated_at BEFORE UPDATE ON "RoomMedia" FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert sample data for testing
 INSERT INTO "Doctors" ("fullName", "email", "password", "specialization", "licenseNumber", "phone") 

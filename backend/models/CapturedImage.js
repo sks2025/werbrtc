@@ -17,7 +17,7 @@ const CapturedImage = sequelize.define('CapturedImage', {
   },
   doctorId: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'doctors',
       key: 'id'
@@ -25,7 +25,7 @@ const CapturedImage = sequelize.define('CapturedImage', {
   },
   patientId: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'patients',
       key: 'id'

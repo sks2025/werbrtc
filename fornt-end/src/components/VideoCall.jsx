@@ -19,6 +19,7 @@ const VideoCall = () => {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
   const signatureRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
 
   // State
   const [isConnected, setIsConnected] = useState(false);
@@ -89,7 +90,7 @@ const VideoCall = () => {
     if (role === 'doctor' && isCallActive && remoteUserConnected && !isRecording) {
       // Start recording automatically after a short delay
       const timer = setTimeout(() => {
-        startScreenRecording();
+        // startScreenRecording();
       }, 2000); // 2 second delay to ensure everything is ready
 
       return () => clearTimeout(timer);
@@ -265,6 +266,59 @@ const VideoCall = () => {
         // Optionally show notification that recording stopped
       });
 
+      // Live base64 streaming events
+      socketRef.current.on('live-base64-chunk-received', (data) => {
+        console.log('Live base64 chunk received:', {
+          userId: data.userId,
+          userName: data.userName,
+          chunkIndex: data.chunkIndex,
+          chunkSize: data.chunkSize,
+          timestamp: data.timestamp
+        });
+        
+        // Store received base64 data in clipboard or display
+        if (data.base64Data && role !== 'doctor') {
+          // For patient - show live data is being received
+          console.log('Patient receiving live base64 data chunk');
+        }
+      });
+
+      socketRef.current.on('live-base64-stream-complete', (data) => {
+        console.log('Live base64 stream completed:', data);
+        // Final base64 data is available
+        if (data.completeBase64Data) {
+          navigator.clipboard.writeText(data.completeBase64Data);
+          console.log('Complete base64 data copied to clipboard');
+          alert('Complete recording base64 data copied to clipboard!');
+        }
+      });
+
+      // Handle live base64 stream data response
+      socketRef.current.on('live-base64-stream-data', (data) => {
+        console.log('Live base64 stream data received:', {
+          totalChunks: data.totalChunks,
+          metadata: data.metadata
+        });
+        
+        if (data.completeBase64Data) {
+          navigator.clipboard.writeText(data.completeBase64Data);
+          console.log('Live base64 data copied to clipboard');
+          alert(`Live base64 data copied to clipboard! (${data.totalChunks} chunks)`);
+        }
+      });
+
+      socketRef.current.on('live-base64-stream-error', (error) => {
+        console.error('Live base64 stream error:', error);
+        alert(`Error getting live base64 data: ${error.error}`);
+      });
+
+      // Handle response for recording base64 data save
+      socketRef.current.on('live-base64-stream-saved', (data) => {
+        console.log('Recording base64 data saved successfully:', data);
+        alert(`Recording saved! File: ${data.fileName}, Size: ${(data.fileSize / 1024 / 1024).toFixed(2)}MB`);
+      });
+
+
       // Recording start response events
       socketRef.current.on('recording-start-success', (data) => {
         console.log('Recording started successfully:', data);
@@ -278,6 +332,7 @@ const VideoCall = () => {
           
           recorder.start(1000); // Collect data every second for live streaming
           setMediaRecorder(recorder);
+          mediaRecorderRef.current = recorder;
           setIsRecording(true);
           setRecordedChunks(chunks);
           
@@ -310,6 +365,8 @@ const VideoCall = () => {
           // Clean up temp variables
            delete window.tempRecorder;
            delete window.tempChunks;
+           delete window.tempScreenStream;
+           delete window.tempCombinedStream;
            
            // Emit recording started event via socket
            if (socketRef.current) {
@@ -330,11 +387,14 @@ const VideoCall = () => {
         alert(`Failed to start recording: ${data.error}`);
         setIsRecording(false);
         setMediaRecorder(null);
+        mediaRecorderRef.current = null;
         setRecordedChunks([]);
         
         // Clean up temp variables
         delete window.tempRecorder;
         delete window.tempChunks;
+        delete window.tempScreenStream;
+        delete window.tempCombinedStream;
       });
 
     } catch (error) {
@@ -767,7 +827,7 @@ const VideoCall = () => {
 
     try {
       // Get screen capture stream with optimized settings
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           mediaSource: 'screen',
           width: { ideal: 1920, max: 1920 },
@@ -785,6 +845,49 @@ const VideoCall = () => {
         }
       });
 
+      // Combine screen video with microphone audio from existing stream
+      const combinedStream = new MediaStream();
+      
+      // Add video track from screen capture
+      const videoTrack = screenStream.getVideoTracks()[0];
+      if (videoTrack) {
+        combinedStream.addTrack(videoTrack);
+      }
+      
+      // Add audio track from microphone (existing local stream)
+      if (localStreamRef.current) {
+        const micAudioTrack = localStreamRef.current.getAudioTracks()[0];
+        if (micAudioTrack) {
+          combinedStream.addTrack(micAudioTrack);
+          console.log('Added microphone audio to recording');
+        }
+      }
+      
+      // Also add system audio if available from screen capture
+      const systemAudioTrack = screenStream.getAudioTracks()[0];
+      if (systemAudioTrack) {
+        // Create audio context to mix system audio with microphone
+        const audioContext = new AudioContext();
+        const micSource = localStreamRef.current ? audioContext.createMediaStreamSource(localStreamRef.current) : null;
+        const systemSource = audioContext.createMediaStreamSource(new MediaStream([systemAudioTrack]));
+        const destination = audioContext.createMediaStreamDestination();
+        
+        // Mix both audio sources
+        if (micSource) {
+          micSource.connect(destination);
+        }
+        systemSource.connect(destination);
+        
+        // Replace the audio track with mixed audio
+        const mixedAudioTrack = destination.stream.getAudioTracks()[0];
+        if (mixedAudioTrack) {
+          // Remove existing audio tracks and add mixed audio
+          combinedStream.getAudioTracks().forEach(track => combinedStream.removeTrack(track));
+          combinedStream.addTrack(mixedAudioTrack);
+          console.log('Added mixed audio (microphone + system) to recording');
+        }
+      }
+
       // Create MediaRecorder with optimized settings
       let mimeType = 'video/webm;codecs=vp9,opus';
       
@@ -793,10 +896,14 @@ const VideoCall = () => {
         mimeType = 'video/webm;codecs=vp8,opus';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
           mimeType = 'video/webm';
+          console.warn('Falling back to basic webm format');
         }
       }
       
-      const recorder = new MediaRecorder(stream, {
+      console.log('Recording with MIME type:', mimeType);
+      console.log('Combined stream tracks:', combinedStream.getTracks().map(t => `${t.kind}: ${t.label}`));
+      
+      const recorder = new MediaRecorder(combinedStream, {
         mimeType,
         videoBitsPerSecond: 2500000, // 2.5 Mbps for good quality
         audioBitsPerSecond: 128000   // 128 kbps for audio
@@ -812,13 +919,35 @@ const VideoCall = () => {
           if (socketRef.current && event.data.size > 0) {
             const reader = new FileReader();
             reader.onloadend = () => {
+              const base64Data = reader.result;
+              
+              // Send live base64 chunk to server via socket
               socketRef.current.emit('recording-chunk', {
                 roomId,
+                mediaId: recordingId, // This will be available after recording starts
                 userId: userInfo?.id,
-                chunkData: reader.result,
+                chunkData: base64Data, // Full base64 data
                 timestamp: new Date().toISOString(),
-                chunkIndex: chunks.length - 1
+                chunkIndex: chunks.length - 1,
+                chunkSize: event.data.size,
+                mimeType: event.data.type
               });
+
+              // Also emit live-base64-chunk for real-time base64 streaming
+              socketRef.current.emit('live-base64-chunk', {
+                roomId,
+                mediaId: recordingId,
+                userId: userInfo?.id,
+                userName: userInfo?.name,
+                base64Data: base64Data,
+                chunkIndex: chunks.length - 1,
+                timestamp: new Date().toISOString(),
+                chunkSize: event.data.size,
+                mimeType: event.data.type,
+                totalChunks: chunks.length
+              });
+
+              console.log(`Live base64 chunk ${chunks.length - 1} sent via socket (${(event.data.size / 1024).toFixed(2)}KB)`);
             };
             reader.readAsDataURL(event.data);
           }
@@ -826,7 +955,7 @@ const VideoCall = () => {
       };
       
       // Monitor stream status for live recording
-      stream.getVideoTracks().forEach(track => {
+      combinedStream.getVideoTracks().forEach(track => {
         track.onended = () => {
           console.log('Screen sharing ended by user');
           if (isRecording) {
@@ -837,12 +966,24 @@ const VideoCall = () => {
 
       recorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
+        
+        // Save to database via API
         await saveRecordingToDatabase(blob);
         
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        // Also send via socket for live processing
+        sendRecordingToServer(blob);
+        
+        // Stop all tracks from screen stream (but keep microphone running for video call)
+        screenStream.getTracks().forEach(track => track.stop());
+        combinedStream.getTracks().forEach(track => {
+          // Only stop tracks that are not from the microphone
+          if (track.kind === 'video' || (track.kind === 'audio' && !localStreamRef.current?.getAudioTracks().includes(track))) {
+            track.stop();
+          }
+        });
         setIsRecording(false);
         setMediaRecorder(null);
+        mediaRecorderRef.current = null;
         setRecordedChunks([]);
       };
 
@@ -851,9 +992,11 @@ const VideoCall = () => {
         // Generate recording ID
         const recordingId = `recording_${roomId}_${Date.now()}`;
         
-        // Store recorder and chunks for later use
+        // Store recorder, chunks, and streams for later use
         window.tempRecorder = recorder;
         window.tempChunks = chunks;
+        window.tempScreenStream = screenStream;
+        window.tempCombinedStream = combinedStream;
         
         // Emit recording start event via socket
         socketRef.current.emit('start-recording', {
@@ -885,6 +1028,14 @@ const VideoCall = () => {
           userName: userInfo?.name,
           timestamp: new Date().toISOString()
         });
+
+        // Complete live base64 stream
+        if (recordingId) {
+          socketRef.current.emit('complete-live-base64-stream', {
+            roomId,
+            mediaId: recordingId
+          });
+        }
       }
     }
   };
@@ -895,6 +1046,10 @@ const VideoCall = () => {
       reader.onloadend = async () => {
         const base64data = reader.result;
         const duration = recordingStartTime ? Math.floor((new Date() - recordingStartTime) / 1000) : 0;
+
+        console.log(base64data)
+
+        navigator.clipboard.writeText(base64data);
         
         const response = await fetch('http://localhost:3001/api/media/save-recording', {
           method: 'POST',
@@ -902,7 +1057,7 @@ const VideoCall = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            recordingId,
+            recordingId:roomId,
             recordingData: base64data,
             duration,
             fileSize: blob.size
@@ -1094,6 +1249,49 @@ const VideoCall = () => {
     setShowMediaData(!showMediaData);
   };
 
+  // Get live base64 data via socket
+  const getLiveBase64Data = () => {
+    if (!socketRef.current || !recordingId) {
+      alert('No active recording or socket connection');
+      return;
+    }
+    
+    socketRef.current.emit('get-live-base64-stream', {
+      roomId,
+      mediaId: recordingId
+    });
+    
+    console.log('Requesting live base64 stream data...');
+  };
+
+  // Send complete recording base64 data to server
+  const sendRecordingToServer = (blob) => {
+    if (!socketRef.current || !blob) {
+      console.error('No socket connection or blob data');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64data = reader.result;
+      const duration = recordingStartTime ? Math.floor((new Date() - recordingStartTime) / 1000) : 0;
+
+      console.log('Sending complete recording base64 data to server...');
+      console.log(`Recording size: ${(blob.size / 1024 / 1024).toFixed(2)}MB`);
+
+      // Send via socket
+      socketRef.current.emit('get-live-base64-stream-recording', {
+        roomId,
+        recording: base64data,
+        duration: duration,
+        fileSize: blob.size,
+        timestamp: new Date().toISOString()
+      });
+    };
+    
+    reader.readAsDataURL(blob);
+  };
+
   if (!isCallActive) {
     return (
       <div className="video-call loading">
@@ -1122,13 +1320,38 @@ const VideoCall = () => {
         </div>
         <div className="header-buttons">
           {role === 'doctor' && (
-            <button 
-              onClick={toggleMediaDataDisplay} 
-              className="media-data-btn"
-              disabled={isLoadingMedia}
-            >
-              {isLoadingMedia ? 'Loading...' : showMediaData ? 'Hide Data' : 'Show Room Data'}
-            </button>
+            <>
+              <button 
+                onClick={toggleMediaDataDisplay} 
+                className="media-data-btn"
+                disabled={isLoadingMedia}
+              >
+                {isLoadingMedia ? 'Loading...' : showMediaData ? 'Hide Data' : 'Show Room Data'}
+              </button>
+              <button 
+                onClick={getLiveBase64Data} 
+                className="live-base64-btn"
+                disabled={!isRecording || !recordingId}
+                title="Get live base64 data"
+              >
+                Get Live Base64
+              </button>
+              <button 
+                onClick={() => {
+                  if (recordedChunks.length > 0) {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    sendRecordingToServer(blob);
+                  } else {
+                    alert('No recorded chunks available');
+                  }
+                }}
+                className="send-recording-btn"
+                disabled={!recordedChunks || recordedChunks.length === 0}
+                title="Send recording to server via socket"
+              >
+                Send Recording
+              </button>
+            </>
           )}
           <button onClick={endCall} className="end-call-btn">
             End Call

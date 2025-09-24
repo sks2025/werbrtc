@@ -1,0 +1,324 @@
+[dotenv@17.2.2] injecting env (8) from .env -- tip: 📡 auto-backup env with Radar: https://dotenvx.com/radar
+[dotenv@17.2.2] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Executing (default): SELECT 1+1 AS result
+✅ PostgreSQL Database connected successfully
+Executing (default): SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'doctors'
+Executing (default): SELECT t.typname enum_name, array_agg(e.enumlabel ORDER BY enumsortorder) enum_value FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace WHERE n.nspname = 'public' AND t.typname='enum_doctors_gender' GROUP BY 1
+Executing (default): SELECT pk.constraint_type as "Constraint",c.column_name as "Field", c.column_default as "Default",c.is_nullable as "Null", (CASE WHEN c.udt_name = 'hstore' THEN c.udt_name ELSE c.data_type END) || (CASE WHEN c.character_maximum_length IS NOT NULL THEN '(' || c.character_maximum_length || ')' ELSE '' END) as "Type", (SELECT array_agg(e.enumlabel) FROM pg_catalog.pg_type t JOIN pg_catalog.pg_enum e ON t.oid=e.enumtypid WHERE t.typname=c.udt_name) AS "special", (SELECT pgd.description FROM pg_catalog.pg_statio_all_tables AS st INNER JOIN pg_catalog.pg_description pgd on (pgd.objoid=st.relid) WHERE c.ordinal_position=pgd.objsubid AND c.table_name=st.relname) AS "Comment" FROM information_schema.columns c LEFT JOIN (SELECT tc.table_schema, tc.table_name, cu.column_name, tc.constraint_type FROM information_schema.TABLE_CONSTRAINTS tc JOIN information_schema.KEY_COLUMN_USAGE  cu ON tc.table_schema=cu.table_schema and tc.table_name=cu.table_name and tc.constraint_name=cu.constraint_name and tc.constraint_type='PRIMARY KEY') pk ON pk.table_schema=c.table_schema AND pk.table_name=c.table_name AND pk.column_name=c.column_name WHERE c.table_name = 'doctors' AND c.table_schema = 'public'
+Executing (default): SELECT DISTINCT tc.constraint_name as constraint_name, tc.constraint_schema as constraint_schema, tc.constraint_catalog as constraint_catalog, tc.table_name as table_name,tc.table_schema as table_schema,tc.table_catalog as table_catalog,tc.initially_deferred as initially_deferred,tc.is_deferrable as is_deferrable,kcu.column_name as column_name,ccu.table_schema  AS referenced_table_schema,ccu.table_catalog  AS referenced_table_catalog,ccu.table_name  AS referenced_table_name,ccu.column_name AS referenced_column_name FROM information_schema.table_constraints AS tc JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name WHERE constraint_type = 'FOREIGN KEY' AND tc.table_name = 'doctors' AND tc.table_catalog = 'webrtc_consultation'
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "firstName" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "firstName" DROP DEFAULT;ALTER TABLE "doctors" ALTER COLUMN "firstName" TYPE VARCHAR(255);
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "lastName" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "lastName" DROP DEFAULT;ALTER TABLE "doctors" ALTER COLUMN "lastName" TYPE VARCHAR(255);
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "email" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "email" DROP DEFAULT;ALTER TABLE "doctors"  ADD UNIQUE ("email");ALTER TABLE "doctors" ALTER COLUMN "email" TYPE VARCHAR(255)  ;
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "password" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "password" DROP DEFAULT;ALTER TABLE "doctors" ALTER COLUMN "password" TYPE VARCHAR(255);
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "phone" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "phone" DROP DEFAULT;ALTER TABLE "doctors" ALTER COLUMN "phone" TYPE VARCHAR(255);
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "gender" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "gender" DROP DEFAULT;DO 'BEGIN CREATE TYPE "public"."enum_doctors_gender" AS ENUM(''male'', ''female'', ''other''); EXCEPTION WHEN duplicate_object THEN null; END';ALTER TABLE "doctors" ALTER COLUMN "gender" TYPE "public"."enum_doctors_gender" USING ("gender"::"public"."enum_doctors_gender");
+Executing (default): ALTER TABLE "doctors" ALTER COLUMN "medicalLicense" SET NOT NULL;ALTER TABLE "doctors" ALTER COLUMN "medicalLicense" DROP DEFAULT;ALTER TABLE "doctors"  ADD UNIQUE ("medicalLicense");ALTER TABLE "doctors" ALTER COLUMN "medicalLicense" TYPE VARCHAR(255)  ;
+❌ Database synchronization failed: Validation error
+🚀 WebRTC Signaling Server running on port 3002
+📡 Socket.io server ready for connections
+🏥 Doctor-Patient Video Call System Active
+💾 PostgreSQL Database connected and synchronized
+User connected: EDIBCLBgdT5gSKsAAAAB
+User EDIBCLBgdT5gSKsAAAAB joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 1 users
+User connected: qLpGjv0HpwY98B7AAAAD
+User qLpGjv0HpwY98B7AAAAD joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as patient
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User connected: GtqsABNtlClvhopDAAAF
+User qLpGjv0HpwY98B7AAAAD joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as patient
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User connected: 7GKUaRCU86pADC1tAAAH
+User EDIBCLBgdT5gSKsAAAAB joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+User disconnected: EDIBCLBgdT5gSKsAAAAB
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 1 users
+User disconnected: 7GKUaRCU86pADC1tAAAH
+User connected: TDDj_c6HmGOSN7EkAAAJ
+User connected: mROjgdAcxX_gVieDAAAL
+User mROjgdAcxX_gVieDAAAL joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User mROjgdAcxX_gVieDAAAL joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+User disconnected: mROjgdAcxX_gVieDAAAL
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 1 users
+User disconnected: TDDj_c6HmGOSN7EkAAAJ
+User connected: HT13DoV7B1saxgLVAAAN
+User HT13DoV7B1saxgLVAAAN joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User connected: xZ93pXh_hFkzTDjtAAAP
+User xZ93pXh_hFkzTDjtAAAP joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 3 users
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+Recording started: recording_fe824b4e-1d23-4936-b422-f74fb2bc106d_1758659728092 in room fe824b4e-1d23-4936-b422-f74fb2bc106d (UUID: 90318274-9c72-42b5-8339-5e26db83de7c)
+Recording started by undefined (undefined) in room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Received recording chunk 0 from user 05f58ef6-77df-41c5-9e51-484c780ca088 in room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Recording stopped by Dr. santosh sharma (05f58ef6-77df-41c5-9e51-484c780ca088) in room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Received recording chunk 1 from user 05f58ef6-77df-41c5-9e51-484c780ca088 in room fe824b4e-1d23-4936-b422-f74fb2bc106d
+🎥 Starting live recording for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+📹 Live recording session started: 23
+🎥 Starting live recording for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+📹 Live recording session started: 24
+🎥 Starting live recording for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+📹 Live recording session started: 25
+User disconnected: HT13DoV7B1saxgLVAAAN
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User disconnected: xZ93pXh_hFkzTDjtAAAP
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 1 users
+User connected: miVB9ewm_r2xp-vuAAAR
+User miVB9ewm_r2xp-vuAAAR joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User connected: cQHoc0nqJFWuTc_HAAAT
+User cQHoc0nqJFWuTc_HAAAT joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 3 users
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+User disconnected: miVB9ewm_r2xp-vuAAAR
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User disconnected: qLpGjv0HpwY98B7AAAAD
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 1 users
+User disconnected: cQHoc0nqJFWuTc_HAAAT
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d deleted (empty)
+User disconnected: GtqsABNtlClvhopDAAAF
+User connected: O3Y0BAmAJqO_rpDmAAAV
+User O3Y0BAmAJqO_rpDmAAAV joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as patient
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 1 users
+User connected: AR_hNAIlYlBJuGvXAAAX
+User AR_hNAIlYlBJuGvXAAAX joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 2 users
+User connected: mdgmOkt4c8nBxvydAAAa
+User connected: 8r-tnF92B6mBbpE0AAAb
+User mdgmOkt4c8nBxvydAAAa joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as patient
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 3 users
+User 8r-tnF92B6mBbpE0AAAb joining room fe824b4e-1d23-4936-b422-f74fb2bc106d as doctor
+Error fetching room details for doctor: EagerLoadingError [SequelizeEagerLoadingError]: Patient is associated to Room using an alias. You've included an alias (Patient), but it does not match the alias(es) defined in your association (patient).
+    at Room._getIncludedAssociation (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:574:15)
+    at Room._validateIncludedElement (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:502:53)
+    at /Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:421:37
+    at Array.map (<anonymous>)
+    at Room._validateIncludedElements (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:417:39)
+    at Room.findAll (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1124:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Room.findOne (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/node_modules/sequelize/lib/model.js:1240:12)
+    at async Socket.<anonymous> (/Users/santoshkumarsharma/Documents/Webrtclast/werbrtc/backend/server.js:141:29)
+Room fe824b4e-1d23-4936-b422-f74fb2bc106d now has 4 users
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+ICE candidate received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Offer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Answer received for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+🎥 Starting live recording for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+📹 Live recording session started: 26
+🎥 Starting live recording for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+📹 Live recording session started: 27
+🎥 Starting live recording for room fe824b4e-1d23-4936-b422-f74fb2bc106d
+Executing (default): SELECT "id", "roomId", "doctorId", "patientId", "roomName", "status", "startTime", "endTime", "duration", "patientLink", "isActive", "maxParticipants", "roomSettings", "createdAt", "updatedAt" FROM "rooms" AS "Room" WHERE "Room"."roomId" = 'fe824b4e-1d23-4936-b422-f74fb2bc106d';
+Executing (default): INSERT INTO "room_media" ("id","roomId","mediaType","doctorId","patientId","mediaData","fileName","metadata","startedAt","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt") VALUES (DEFAULT,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING "id","roomId","mediaType","doctorId","patientId","mediaData","fileURL","filePath","fileName","metadata","duration","fileSize","startedAt","endedAt","signedBy","purpose","description","status","capturedAt","isLiveStreaming","liveChunks","createdAt","updatedAt";
+📹 Live recording session started: 28

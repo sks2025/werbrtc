@@ -6,6 +6,7 @@ const Consultation = require('./Consultation');
 const CapturedImage = require('./CapturedImage');
 const DigitalSignature = require('./DigitalSignature');
 const ScreenRecording = require('./ScreenRecording');
+const RoomMedia = require('./RoomMedia');
 
 // Define associations
 Doctor.hasMany(Room, { foreignKey: 'doctorId', as: 'rooms' });
@@ -53,6 +54,16 @@ ScreenRecording.belongsTo(Doctor, { foreignKey: 'doctorId', as: 'doctor' });
 Patient.hasMany(ScreenRecording, { foreignKey: 'patientId', as: 'recordings' });
 ScreenRecording.belongsTo(Patient, { foreignKey: 'patientId', as: 'patient' });
 
+// RoomMedia associations (Unified media table)
+Room.hasMany(RoomMedia, { foreignKey: 'roomId', as: 'media' });
+RoomMedia.belongsTo(Room, { foreignKey: 'roomId', as: 'room' });
+
+Doctor.hasMany(RoomMedia, { foreignKey: 'doctorId', as: 'media' });
+RoomMedia.belongsTo(Doctor, { foreignKey: 'doctorId', as: 'doctor' });
+
+Patient.hasMany(RoomMedia, { foreignKey: 'patientId', as: 'media' });
+RoomMedia.belongsTo(Patient, { foreignKey: 'patientId', as: 'patient' });
+
 // Sync database
 const syncDatabase = async () => {
   try {
@@ -73,5 +84,6 @@ module.exports = {
   CapturedImage,
   DigitalSignature,
   ScreenRecording,
+  RoomMedia,
   syncDatabase
 };
