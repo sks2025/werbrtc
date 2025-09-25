@@ -51,6 +51,14 @@ const VideoCall = () => {
   });
   const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState({
+    isUploading: false,
+    currentChunk: 0,
+    totalChunks: 0,
+    percentage: 0
+  });
+  
   // Consultation data state
   const [consultationData, setConsultationData] = useState({
     symptoms: '',
@@ -1224,33 +1232,135 @@ const VideoCall = () => {
         const base64data = reader.result;
         const duration = recordingStartTime ? Math.floor((new Date() - recordingStartTime) / 1000) : 0;
 
-        console.log(base64data)
+        console.log('Recording size:', `${(blob.size / 1024 / 1024).toFixed(2)} MB`);
 
-        navigator.clipboard.writeText(base64data);
-        
-        const response = await fetch('https://api.stechooze.com/api/media/save-recording', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            recordingId:roomId,
-            recordingData: base64data,
-            duration,
-            fileSize: blob.size
-          }),
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          console.log('Recording saved to database successfully');
-          alert('Screen recording saved successfully!');
+        // Check if file is too large (> 50MB)
+        if (blob.size > 50 * 1024 * 1024) {
+          console.log('File too large, using chunked upload...');
+          await saveRecordingInChunks(blob, base64data, duration);
+        } else {
+          console.log('File size OK, using regular upload...');
+          await saveRecordingRegular(blob, base64data, duration);
         }
       };
       reader.readAsDataURL(blob);
     } catch (error) {
       console.error('Error saving recording to database:', error);
       alert('Failed to save recording to database.');
+    }
+  };
+
+  const saveRecordingRegular = async (blob, base64data, duration) => {
+    try {
+      const response = await fetch('https://api.stechooze.com/api/media/save-recording', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recordingId: roomId,
+          recordingData: base64data,
+          duration,
+          fileSize: blob.size
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('Recording saved to database successfully');
+        alert('Screen recording saved successfully!');
+      } else {
+        console.error('Failed to save recording:', result.error);
+        alert(`Failed to save recording: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error in regular upload:', error);
+      alert('Error saving recording. Please try again.');
+    }
+  };
+
+  const saveRecordingInChunks = async (blob, base64data, duration) => {
+    try {
+      const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+      const totalChunks = Math.ceil(base64data.length / chunkSize);
+      const fileName = `recording_${roomId}_${Date.now()}.webm`;
+
+      console.log(`Uploading ${totalChunks} chunks...`);
+
+      // Set initial upload progress
+      setUploadProgress({
+        isUploading: true,
+        currentChunk: 0,
+        totalChunks: totalChunks,
+        percentage: 0
+      });
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, base64data.length);
+        const chunk = base64data.substring(start, end);
+
+        const response = await fetch('https://api.stechooze.com/api/media/save-recording-chunk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recordingId: roomId,
+            chunkData: chunk,
+            chunkIndex: i,
+            totalChunks: totalChunks,
+            fileName: fileName,
+            duration: duration,
+            fileSize: blob.size
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          console.log(`Chunk ${i + 1}/${totalChunks} uploaded successfully`);
+          
+          // Update progress
+          const percentage = Math.round(((i + 1) / totalChunks) * 100);
+          setUploadProgress({
+            isUploading: true,
+            currentChunk: i + 1,
+            totalChunks: totalChunks,
+            percentage: percentage
+          });
+          
+          // If this is the last chunk, show success message
+          if (i === totalChunks - 1) {
+            console.log('All chunks uploaded successfully');
+            setUploadProgress({
+              isUploading: false,
+              currentChunk: 0,
+              totalChunks: 0,
+              percentage: 0
+            });
+            alert('Screen recording saved successfully!');
+          }
+        } else {
+          console.error(`Failed to upload chunk ${i + 1}:`, result.error);
+          setUploadProgress({
+            isUploading: false,
+            currentChunk: 0,
+            totalChunks: 0,
+            percentage: 0
+          });
+          alert(`Failed to upload chunk ${i + 1}. Please try again.`);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error in chunked upload:', error);
+      setUploadProgress({
+        isUploading: false,
+        currentChunk: 0,
+        totalChunks: 0,
+        percentage: 0
+      });
+      alert('Error saving recording. Please try again.');
     }
   };
 
@@ -1514,6 +1624,11 @@ const VideoCall = () => {
           {role === 'doctor' && isRecording && (
             <span className="recording-status">
               🔴 Recording
+            </span>
+          )}
+          {uploadProgress.isUploading && (
+            <span className="upload-status">
+              📤 Uploading {uploadProgress.currentChunk}/{uploadProgress.totalChunks} ({uploadProgress.percentage}%)
             </span>
           )}
         </div>

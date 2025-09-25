@@ -137,6 +137,20 @@
   animation: recordingPulse 1.5s infinite;
 }
 
+.upload-status {
+  padding: 0.4rem 1rem;
+  border-radius: 25px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+  animation: uploadPulse 2s infinite;
+}
+
 @keyframes recordingPulse {
   0%, 100% { 
     opacity: 1; 
@@ -145,6 +159,15 @@
   50% { 
     opacity: 0.8; 
     transform: scale(1.05);
+  }
+}
+
+@keyframes uploadPulse {
+  0%, 100% { 
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+  }
+  50% { 
+    box-shadow: 0 4px 25px rgba(52, 152, 219, 0.6);
   }
 }
 
