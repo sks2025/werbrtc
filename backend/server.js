@@ -35,8 +35,8 @@ app.use(cors({
   origin: "*",
   credentials: true
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 // Serve static files for uploads (images, videos, recordings)
 app.use('/uploads', express.static(path.join(__dirname, 'routes/uploads')));
 

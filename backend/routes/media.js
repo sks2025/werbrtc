@@ -363,6 +363,141 @@ router.get('/room/:roomId', async (req, res) => {
 
 // ===== UNIFIED MEDIA ROUTES (NEW) =====
 
+// Chunked recording upload endpoint
+router.post('/upload-recording-chunk', async (req, res) => {
+  try {
+    const { 
+      roomId, 
+      recordingId, 
+      chunkIndex, 
+      totalChunks, 
+      chunkData, 
+      fileName,
+      doctorId,
+      patientId
+    } = req.body;
+
+    if (!roomId || !recordingId || chunkIndex === undefined || !chunkData) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: roomId, recordingId, chunkIndex, chunkData' 
+      });
+    }
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    // Create chunks directory for this recording
+    const chunksDir = path.join(uploadsDir, 'chunks', recordingId);
+    if (!fs.existsSync(chunksDir)) {
+      fs.mkdirSync(chunksDir, { recursive: true });
+    }
+
+    // Save chunk to file
+    const chunkFileName = `chunk_${chunkIndex.toString().padStart(6, '0')}.webm`;
+    const chunkPath = path.join(chunksDir, chunkFileName);
+    
+    // Convert base64 to buffer and save
+    const base64Data = chunkData.split(',')[1];
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(chunkPath, buffer);
+
+    console.log(`Chunk ${chunkIndex}/${totalChunks} saved for recording ${recordingId}`);
+
+    // If this is the last chunk, combine all chunks
+    if (chunkIndex === totalChunks - 1) {
+      console.log(`All chunks received for recording ${recordingId}, combining...`);
+      
+      // Combine chunks
+      const finalFileName = fileName || `recording_${roomId}_${Date.now()}.webm`;
+      const finalPath = path.join(uploadsDir, finalFileName);
+      
+      const writeStream = fs.createWriteStream(finalPath);
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkFile = path.join(chunksDir, `chunk_${i.toString().padStart(6, '0')}.webm`);
+        if (fs.existsSync(chunkFile)) {
+          const chunkBuffer = fs.readFileSync(chunkFile);
+          writeStream.write(chunkBuffer);
+        }
+      }
+      
+      writeStream.end();
+      
+      // Wait for write to complete
+      await new Promise((resolve, reject) => {
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      });
+
+      // Get file stats
+      const stats = fs.statSync(finalPath);
+      const fileSize = stats.size;
+
+      // Save to database
+      const { RoomMedia, Room } = require('../models');
+      
+      // Find the actual room by roomId to get the UUID
+      const room = await Room.findOne({ where: { roomId: roomId } });
+      if (!room) {
+        return res.status(404).json({ 
+          error: 'Room not found',
+          details: `Room with ID ${roomId} does not exist`
+        });
+      }
+
+      const recording = await RoomMedia.create({
+        roomId: room.id,
+        mediaType: 'screen_recording',
+        doctorId: doctorId || room.doctorId,
+        patientId: patientId || room.patientId,
+        mediaData: `/uploads/${finalFileName}`,
+        fileName: finalFileName,
+        fileSize: fileSize,
+        status: 'completed',
+        capturedAt: new Date(),
+        isLiveStreaming: false,
+        liveChunks: []
+      });
+
+      // Clean up chunks directory
+      fs.rmSync(chunksDir, { recursive: true, force: true });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Recording uploaded and saved successfully',
+        data: {
+          id: recording.id,
+          fileName: recording.fileName,
+          recordingUrl: recording.mediaData,
+          fileSize: recording.fileSize,
+          completedAt: recording.capturedAt
+        }
+      });
+    }
+
+    // Return success for chunk upload
+    res.status(200).json({
+      success: true,
+      message: `Chunk ${chunkIndex + 1}/${totalChunks} uploaded successfully`,
+      data: {
+        chunkIndex,
+        totalChunks,
+        progress: Math.round(((chunkIndex + 1) / totalChunks) * 100)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error uploading recording chunk:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload recording chunk',
+      details: error.message 
+    });
+  }
+});
+
 // Save any media type to unified RoomMedia table
 router.post('/save-media', async (req, res) => {
   try {
