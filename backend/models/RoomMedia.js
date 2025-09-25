@@ -36,8 +36,8 @@ const RoomMedia = sequelize.define('RoomMedia', {
     }
   },
   mediaData: {
-    type: DataTypes.TEXT('long'), // For base64 data, file paths, or large content
-    allowNull: false
+    type: DataTypes.TEXT('long'),
+    allowNull: true
   },
   fileName: {
     type: DataTypes.STRING,

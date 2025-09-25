@@ -310,6 +310,7 @@ io.on('connection', (socket) => {
       
       // Get patientId from room if not provided
       const finalPatientId = patientId || room.patientId;
+      const finalDoctorId = doctorId || room.doctorId;
       
       if (!finalPatientId) {
         socket.emit('recording-start-error', {
@@ -319,17 +320,36 @@ io.on('connection', (socket) => {
         return;
       }
       
+      if (!finalDoctorId) {
+        socket.emit('recording-start-error', {
+          error: 'Doctor not found',
+          details: 'No doctor has joined this room yet'
+        });
+        return;
+      }
+      
+      // Debug: Log all values before creating recording
+      console.log('Creating recording with:', {
+        roomId: room.id,
+        originalRoomId: roomId,
+        doctorId: finalDoctorId,
+        patientId: finalPatientId,
+        recordingId: recordingId
+      });
+      
       // Create recording entry in unified media table
       const recording = await RoomMedia.create({
         roomId: room.id, // Use the actual UUID from the room
         mediaType: 'screen_recording',
-        doctorId,
+        doctorId: finalDoctorId,
         patientId: finalPatientId,
         mediaData: '', // Will be updated with actual recording data
-        fileName: `${recordingId}.webm`,
+        fileName: `recording_${roomId}_${Date.now()}.webm`,
         startedAt: new Date(timestamp),
         status: 'recording',
+        capturedAt: new Date(),
         isLiveStreaming: true,
+        liveChunks: [],
         metadata: {
           originalRoomId: roomId,
           socketId: socket.id,

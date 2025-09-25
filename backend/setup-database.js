@@ -113,19 +113,38 @@ class DatabaseSetup {
     this.info('Dropping existing tables...');
     
     const dropQueries = [
+      // Drop tables in correct order
       'DROP TABLE IF EXISTS "locations" CASCADE;',
       'DROP TABLE IF EXISTS "call_saves" CASCADE;',
+      'DROP TABLE IF EXISTS "room_media" CASCADE;',
       'DROP TABLE IF EXISTS "RoomMedia" CASCADE;',
+      'DROP TABLE IF EXISTS "consultations" CASCADE;',
       'DROP TABLE IF EXISTS "Consultations" CASCADE;',
+      'DROP TABLE IF EXISTS "rooms" CASCADE;',
       'DROP TABLE IF EXISTS "Rooms" CASCADE;',
+      'DROP TABLE IF EXISTS "patients" CASCADE;',
       'DROP TABLE IF EXISTS "Patients" CASCADE;',
+      'DROP TABLE IF EXISTS "doctors" CASCADE;',
       'DROP TABLE IF EXISTS "Doctors" CASCADE;',
       'DROP TABLE IF EXISTS "admins" CASCADE;',
       
-      // Drop old tables for backward compatibility
+      // Drop old individual tables
       'DROP TABLE IF EXISTS "CapturedImages" CASCADE;',
+      'DROP TABLE IF EXISTS "captured_images" CASCADE;',
       'DROP TABLE IF EXISTS "DigitalSignatures" CASCADE;',
+      'DROP TABLE IF EXISTS "digital_signatures" CASCADE;',
       'DROP TABLE IF EXISTS "ScreenRecordings" CASCADE;',
+      'DROP TABLE IF EXISTS "screen_recordings" CASCADE;',
+      
+      // Drop ENUMs
+      'DROP TYPE IF EXISTS "enum_Doctors_gender" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_Patients_gender" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_Rooms_status" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_room_media_mediaType" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_room_media_signedBy" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_room_media_status" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_call_saves_status" CASCADE;',
+      'DROP TYPE IF EXISTS "enum_locations_status" CASCADE;',
       
       // Drop triggers and functions
       'DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;'
@@ -161,16 +180,19 @@ class DatabaseSetup {
     this.info('Creating tables...');
 
     const createTableQueries = [
-      // Doctors table
-      `CREATE TABLE "Doctors" (
-        "doctorId" SERIAL PRIMARY KEY,
-        "fullName" VARCHAR(255) NOT NULL,
+      // Doctors table (matching your models)
+      `CREATE TABLE "doctors" (
+        "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "firstName" VARCHAR(255) NOT NULL,
+        "lastName" VARCHAR(255) NOT NULL,
         "email" VARCHAR(255) UNIQUE NOT NULL,
         "password" VARCHAR(255) NOT NULL,
-        "specialization" VARCHAR(255),
-        "licenseNumber" VARCHAR(100),
         "phone" VARCHAR(20),
+        "gender" VARCHAR(10),
+        "medicalLicense" VARCHAR(100),
+        "specialization" VARCHAR(255),
         "isActive" BOOLEAN DEFAULT true,
+        "lastLogin" TIMESTAMP WITH TIME ZONE,
         "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );`,

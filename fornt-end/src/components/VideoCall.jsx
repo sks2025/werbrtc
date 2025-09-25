@@ -198,8 +198,8 @@ const VideoCall = () => {
       await getUserMedia();
 
       // Initialize Socket.io connection after media is ready
-      console.log('Connecting to socket server at: https://api.stechooze.com');
-      socketRef.current = io('https://api.stechooze.com', {
+      console.log('Connecting to socket server at: http://localhost:5000');
+      socketRef.current = io('http://localhost:5000', {
         transports: ['websocket', 'polling'],
         timeout: 20000,
         forceNew: true,
@@ -217,7 +217,7 @@ const VideoCall = () => {
 
       socketRef.current.on('connect_error', (error) => {
         console.error('❌ Socket connection error:', error);
-        console.error('Connection failed to: https://api.stechooze.com');
+        console.error('Connection failed to: http://localhost:5000');
         setIsConnected(false);
       });
 
@@ -1228,7 +1228,7 @@ const VideoCall = () => {
 
         navigator.clipboard.writeText(base64data);
         
-        const response = await fetch('https://api.stechooze.com/api/media/save-recording', {
+        const response = await fetch('http://localhost:5000/api/media/save-recording', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1256,7 +1256,7 @@ const VideoCall = () => {
 
   const saveImageToDatabase = async (imageData, fileName) => {
     try {
-      const response = await fetch('https://api.stechooze.com/api/media/capture-image', {
+      const response = await fetch('http://localhost:5000/api/media/capture-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1319,7 +1319,7 @@ const VideoCall = () => {
         
         console.log('Signature request body:', requestBody);
         
-        const response = await fetch('https://api.stechooze.com/api/media/save-signature', {
+        const response = await fetch('http://localhost:5000/api/media/save-signature', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1584,7 +1584,7 @@ const VideoCall = () => {
           <div>Signaling State: {peerConnectionRef.current?.signalingState || 'N/A'}</div>
           <div>User Info: {userInfo ? userInfo.name || userInfo.email : 'Loading...'}</div>
           <div>Socket ID: {socketRef.current?.id || 'Not connected'}</div>
-          <div>Server: https://api.stechooze.com</div>
+          <div>Server: http://localhost:5000</div>
         </div>
       )}
 
@@ -2016,7 +2016,7 @@ const VideoCall = () => {
                             </div>
                             {recording.filePath && (
                               <a 
-                                href={`https://api.stechooze.com${recording.filePath}`}
+                                href={`http://localhost:5000${recording.filePath}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="download-btn"
