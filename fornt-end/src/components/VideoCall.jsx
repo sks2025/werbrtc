@@ -1952,52 +1952,103 @@ const VideoCall = () => {
                 </div>
               ) : (
                 <div className="media-data-content">
-                  {/* Images Section */}
+                  {/* Doctor Images Section */}
                   <div className="media-section">
-                    <h4>Captured Images ({roomMediaData.images?.length || 0})</h4>
-                    {roomMediaData.images?.length > 0 ? (
+                    <h4>Doctor Images ({roomMediaData.doctorImages?.length || 0})</h4>
+                    {roomMediaData.doctorImages?.length > 0 ? (
                       <div className="media-grid">
-                        {roomMediaData.images.map((image, index) => (
-                          <div key={index} className="media-item">
+                        {roomMediaData.doctorImages.map((image, index) => (
+                          <div key={image.id || index} className="media-item">
                             <img 
-                              src={image.imageData} 
-                              alt={`Captured ${index + 1}`}
+                              src={`https://api.stechooze.com${image.imageUrl}`} 
+                              alt={`Doctor Image ${index + 1}`}
                               className="media-thumbnail"
                             />
                             <div className="media-info">
-                              <p>Captured by: {image.capturedBy}</p>
-                              <p>Time: {new Date(image.createdAt).toLocaleString()}</p>
+                              <p>Captured by: Dr. {image.doctor?.firstName} {image.doctor?.lastName}</p>
+                              <p>Description: {image.description}</p>
+                              <p>Time: {new Date(image.capturedAt).toLocaleString()}</p>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="no-data">No images captured yet</p>
+                      <p className="no-data">No doctor images captured yet</p>
                     )}
                   </div>
 
-                  {/* Signatures Section */}
+                  {/* Patient Images Section */}
                   <div className="media-section">
-                    <h4>Digital Signatures ({roomMediaData.signatures?.length || 0})</h4>
-                    {roomMediaData.signatures?.length > 0 ? (
+                    <h4>Patient Images ({roomMediaData.patientImages?.length || 0})</h4>
+                    {roomMediaData.patientImages?.length > 0 ? (
                       <div className="media-grid">
-                        {roomMediaData.signatures.map((signature, index) => (
-                          <div key={index} className="media-item">
+                        {roomMediaData.patientImages.map((image, index) => (
+                          <div key={image.id || index} className="media-item">
                             <img 
-                              src={signature.signatureData} 
-                              alt={`Signature ${index + 1}`}
+                              src={`https://api.stechooze.com${image.imageUrl}`} 
+                              alt={`Patient Image ${index + 1}`}
                               className="media-thumbnail"
                             />
                             <div className="media-info">
-                              <p>Signed by: {signature.signedBy}</p>
-                              <p>Purpose: {signature.purpose}</p>
-                              <p>Time: {new Date(signature.createdAt).toLocaleString()}</p>
+                              <p>Captured by: {image.patient?.name}</p>
+                              <p>Description: {image.description}</p>
+                              <p>Time: {new Date(image.capturedAt).toLocaleString()}</p>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="no-data">No signatures created yet</p>
+                      <p className="no-data">No patient images captured yet</p>
+                    )}
+                  </div>
+
+                  {/* Doctor Signatures Section */}
+                  <div className="media-section">
+                    <h4>Doctor Signatures ({roomMediaData.doctorSignatures?.length || 0})</h4>
+                    {roomMediaData.doctorSignatures?.length > 0 ? (
+                      <div className="media-grid">
+                        {roomMediaData.doctorSignatures.map((signature, index) => (
+                          <div key={signature.id || index} className="media-item">
+                            <img 
+                              src={`https://api.stechooze.com${signature.signatureUrl}`} 
+                              alt={`Doctor Signature ${index + 1}`}
+                              className="media-thumbnail"
+                            />
+                            <div className="media-info">
+                              <p>Signed by: Dr. {signature.doctor?.firstName} {signature.doctor?.lastName}</p>
+                              <p>Purpose: {signature.purpose}</p>
+                              <p>Time: {new Date(signature.signedAt).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-data">No doctor signatures created yet</p>
+                    )}
+                  </div>
+
+                  {/* Patient Signatures Section */}
+                  <div className="media-section">
+                    <h4>Patient Signatures ({roomMediaData.patientSignatures?.length || 0})</h4>
+                    {roomMediaData.patientSignatures?.length > 0 ? (
+                      <div className="media-grid">
+                        {roomMediaData.patientSignatures.map((signature, index) => (
+                          <div key={signature.id || index} className="media-item">
+                            <img 
+                              src={`https://api.stechooze.com${signature.signatureUrl}`} 
+                              alt={`Patient Signature ${index + 1}`}
+                              className="media-thumbnail"
+                            />
+                            <div className="media-info">
+                              <p>Signed by: {signature.patient?.name}</p>
+                              <p>Purpose: {signature.purpose}</p>
+                              <p>Time: {new Date(signature.signedAt).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="no-data">No patient signatures created yet</p>
                     )}
                   </div>
 
@@ -2007,16 +2058,18 @@ const VideoCall = () => {
                     {roomMediaData.recordings?.length > 0 ? (
                       <div className="media-list">
                         {roomMediaData.recordings.map((recording, index) => (
-                          <div key={index} className="media-item recording-item">
+                          <div key={recording.id || index} className="media-item recording-item">
                             <div className="recording-info">
                               <p><strong>Recording {index + 1}</strong></p>
+                              <p>File: {recording.fileName}</p>
                               <p>Duration: {recording.duration || 'Unknown'}</p>
-                              <p>Started by: {recording.startedBy}</p>
+                              <p>File Size: {recording.fileSize ? `${(recording.fileSize / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</p>
+                              <p>Status: {recording.status}</p>
                               <p>Time: {new Date(recording.createdAt).toLocaleString()}</p>
                             </div>
-                            {recording.filePath && (
+                            {recording.recordingUrl && (
                               <a 
-                                href={`https://api.stechooze.com${recording.filePath}`}
+                                href={`https://api.stechooze.com${recording.recordingUrl}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="download-btn"
@@ -2031,6 +2084,53 @@ const VideoCall = () => {
                       <p className="no-data">No recordings available yet</p>
                     )}
                   </div>
+
+                  {/* Location Data Section */}
+                  {roomMediaData.locationData && (
+                    <div className="media-section">
+                      <h4>Location Data</h4>
+                      <div className="location-info">
+                        <div className="location-item">
+                          <h5>Patient Location</h5>
+                          <p>Latitude: {roomMediaData.locationData.patient?.latitude}</p>
+                          <p>Longitude: {roomMediaData.locationData.patient?.longitude}</p>
+                          <p>Address: {roomMediaData.locationData.patient?.address}</p>
+                          <p>Accuracy: {roomMediaData.locationData.patient?.accuracy}m</p>
+                          <p>Time: {new Date(roomMediaData.locationData.patient?.timestamp).toLocaleString()}</p>
+                        </div>
+                        <div className="location-item">
+                          <h5>Doctor Location</h5>
+                          <p>Latitude: {roomMediaData.locationData.doctor?.latitude}</p>
+                          <p>Longitude: {roomMediaData.locationData.doctor?.longitude}</p>
+                          <p>Address: {roomMediaData.locationData.doctor?.address}</p>
+                          <p>Accuracy: {roomMediaData.locationData.doctor?.accuracy}m</p>
+                          <p>Time: {new Date(roomMediaData.locationData.doctor?.timestamp).toLocaleString()}</p>
+                        </div>
+                        {roomMediaData.locationData.distance && (
+                          <div className="location-item">
+                            <h5>Distance</h5>
+                            <p>Distance: {roomMediaData.locationData.distance.kilometers} km ({roomMediaData.locationData.distance.miles} miles)</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Summary Section */}
+                  {roomMediaData.summary && (
+                    <div className="media-section">
+                      <h4>Summary</h4>
+                      <div className="summary-info">
+                        <p>Total Recordings: {roomMediaData.summary.totalRecordings}</p>
+                        <p>Doctor Signatures: {roomMediaData.summary.totalDoctorSignatures}</p>
+                        <p>Patient Signatures: {roomMediaData.summary.totalPatientSignatures}</p>
+                        <p>Doctor Images: {roomMediaData.summary.totalDoctorImages}</p>
+                        <p>Patient Images: {roomMediaData.summary.totalPatientImages}</p>
+                        <p>Total Media Items: {roomMediaData.summary.totalMediaItems}</p>
+                        <p>Has Location Data: {roomMediaData.summary.hasLocationData ? 'Yes' : 'No'}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

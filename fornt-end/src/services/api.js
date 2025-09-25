@@ -61,7 +61,7 @@ export const consultationsAPI = {
 
 // Media API
 export const mediaAPI = {
-  getRoomMedia: (roomId, role, userId) => api.get(`/media/room/${roomId}?role=${role}&userId=${userId}`),
+  getRoomMedia: (roomId) => api.get(`/media/all-media/${roomId}`),
   captureImage: (imageData) => api.post('/media/capture-image', imageData),
   saveSignature: (signatureData) => api.post('/media/save-signature', signatureData),
   startRecording: (recordingData) => api.post('/media/start-recording', recordingData),
