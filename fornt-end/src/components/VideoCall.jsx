@@ -1234,8 +1234,9 @@ const VideoCall = () => {
 
         console.log('Recording size:', `${(blob.size / 1024 / 1024).toFixed(2)} MB`);
 
-        // Check if file is too large (> 50MB)
-        if (blob.size > 50 * 1024 * 1024) {
+        // Check if file is too large (> 30MB for safety)
+        // Base64 encoding increases size by ~33%, so 30MB becomes ~40MB
+        if (blob.size > 30 * 1024 * 1024) {
           console.log('File too large, using chunked upload...');
           await saveRecordingInChunks(blob, base64data, duration);
         } else {

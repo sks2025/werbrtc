@@ -325,12 +325,12 @@ router.post('/save-recording', async (req, res) => {
     const base64Data = recordingData.split(",")[1];
     const estimatedSize = (base64Data.length * 3) / 4; // Base64 to bytes conversion
     
-    if (estimatedSize > 50 * 1024 * 1024) { // 50MB limit
+    if (estimatedSize > 30 * 1024 * 1024) { // 30MB limit (becomes ~40MB with base64)
       return res.status(413).json({
         error: 'File too large',
         details: 'Recording file is too large. Please use chunked upload.',
         estimatedSize: `${(estimatedSize / 1024 / 1024).toFixed(2)} MB`,
-        maxSize: '50 MB'
+        maxSize: '30 MB (40 MB with base64 encoding)'
       });
     }
 
