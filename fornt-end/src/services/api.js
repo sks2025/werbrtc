@@ -66,6 +66,7 @@ export const mediaAPI = {
   saveSignature: (signatureData) => api.post('/media/save-signature', signatureData),
   startRecording: (recordingData) => api.post('/media/start-recording', recordingData),
   saveRecording: (recordingData) => api.post('/media/save-recording', recordingData),
+  saveRecordingChunk: (chunkData) => api.post('/media/save-recording-chunk', chunkData),
 };
 
 // Location API

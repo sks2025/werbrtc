@@ -216,15 +216,125 @@ router.post('/start-recording', async (req, res) => {
 });
 
 // Save screen recording
+// Chunked upload for large recordings
+router.post('/save-recording-chunk', async (req, res) => {
+  try {
+    const { recordingId, chunkData, chunkIndex, totalChunks, fileName, duration, fileSize } = req.body;
+
+    if (!recordingId || !chunkData || chunkIndex === undefined || totalChunks === undefined) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: recordingId, chunkData, chunkIndex, totalChunks' 
+      });
+    }
+
+    const folderPath = path.join(__dirname, "uploads");
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath);
+    }
+
+    // Create chunks directory for this recording
+    const chunksDir = path.join(folderPath, `chunks_${recordingId}`);
+    if (!fs.existsSync(chunksDir)) {
+      fs.mkdirSync(chunksDir);
+    }
+
+    // Save chunk
+    const chunkFileName = `chunk_${chunkIndex}`;
+    const chunkPath = path.join(chunksDir, chunkFileName);
+    
+    const base64Data = chunkData.split(",")[1];
+    const chunkBuffer = Buffer.from(base64Data, "base64");
+    fs.writeFileSync(chunkPath, chunkBuffer);
+
+    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} saved for recording ${recordingId}`);
+
+    // If this is the last chunk, combine all chunks
+    if (chunkIndex === totalChunks - 1) {
+      const finalFileName = fileName || `recording_${Date.now()}.webm`;
+      const finalFilePath = path.join(folderPath, finalFileName);
+      
+      // Combine all chunks
+      const writeStream = fs.createWriteStream(finalFilePath);
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPath = path.join(chunksDir, `chunk_${i}`);
+        const chunkData = fs.readFileSync(chunkPath);
+        writeStream.write(chunkData);
+      }
+      
+      writeStream.end();
+      
+      // Clean up chunks directory
+      fs.rmSync(chunksDir, { recursive: true, force: true });
+      
+      console.log('Recording combined and saved to:', finalFilePath);
+
+      // Save to database
+      await CallSave.create({
+        recordingData: `/uploads/${finalFileName}`,
+        fileName: finalFileName,
+        duration: duration || null,
+        fileSize: fileSize || null,
+        startedAt: new Date(),
+        endedAt: new Date(),
+        status: 'completed',
+        roomId: recordingId
+      });
+
+      // Get the created record
+      const savedRecording = await CallSave.findOne({
+        where: { roomId: recordingId },
+        order: [['createdAt', 'DESC']]
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Recording saved successfully',
+        data: {
+          id: savedRecording.id,
+          fileName: savedRecording.fileName,
+          recordingUrl: savedRecording.recordingData,
+          duration: savedRecording.duration,
+          endedAt: savedRecording.endedAt
+        }
+      });
+    } else {
+      // Chunk received, waiting for more
+      res.status(200).json({
+        success: true,
+        message: `Chunk ${chunkIndex + 1}/${totalChunks} received`,
+        chunkReceived: chunkIndex + 1,
+        totalChunks: totalChunks
+      });
+    }
+  } catch (error) {
+    console.error('Error saving recording chunk:', error);
+    res.status(500).json({ 
+      error: 'Failed to save recording chunk',
+      details: error.message 
+    });
+  }
+});
+
+// Original save-recording endpoint (for smaller files)
 router.post('/save-recording', async (req, res) => {
   try {
     const { recordingId, recordingData, duration, fileSize } = req.body;
-    // console.log("mmmsmsmms",recordingId, recordingData, duration, fileSize,"kskskkssk")
 
+    // Check file size before processing
     const base64Data = recordingData.split(",")[1];
+    const estimatedSize = (base64Data.length * 3) / 4; // Base64 to bytes conversion
+    
+    if (estimatedSize > 50 * 1024 * 1024) { // 50MB limit
+      return res.status(413).json({
+        error: 'File too large',
+        details: 'Recording file is too large. Please use chunked upload.',
+        estimatedSize: `${(estimatedSize / 1024 / 1024).toFixed(2)} MB`,
+        maxSize: '50 MB'
+      });
+    }
 
     const videoBuffer = Buffer.from(base64Data, "base64");
-
 
     const folderPath = path.join(__dirname, "uploads");
     if (!fs.existsSync(folderPath)) {
@@ -240,11 +350,11 @@ router.post('/save-recording', async (req, res) => {
     console.log('Recording saved to:', filePath);
 
     await CallSave.create({
-      recordingData: `/uploads/${fileName}`, // Store relative path, not full system path
+      recordingData: `/uploads/${fileName}`,
       fileName: fileName,
       duration: duration || null,
       fileSize: fileSize || null,
-      startedAt: new Date(), // Add start time
+      startedAt: new Date(),
       endedAt: new Date(),
       status: 'completed',
       roomId: recordingId
